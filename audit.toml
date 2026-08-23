@@ -1,0 +1,40 @@
+# cargo-audit configuration.
+#
+# Every ignored advisory here is an unmaintained-crate notice (informational,
+# no CVE) for code DocBunker does not control, reached transitively. Anything
+# with a real vulnerability must be fixed, not ignored - quick-xml
+# (RUSTSEC-2026-0194/0195) was upgraded to 0.41 instead of ignored, for
+# example. Revisit these entries when their upstreams move.
+
+[advisories]
+ignore = [
+    # ttf-parser, via fontdue (OOXML text-preview rasterizer). fontdue has no
+    # skrifa-based release yet. The parser only ever reads the Roboto font we
+    # embed in the worker binary - never document bytes - and runs inside the
+    # sandbox regardless.
+    "RUSTSEC-2026-0192",
+
+    # gtk-rs 0.18 stack (glib/gtk/atk/gdk*/proc-macro-error), pulled in by
+    # Tauri/wry/muda/tao on Linux. Not upgradable from our side; Tauri will
+    # migrate the Linux backend when gtk-rs releases do.
+    "RUSTSEC-2024-0370",
+    "RUSTSEC-2024-0411",
+    "RUSTSEC-2024-0412",
+    "RUSTSEC-2024-0413",
+    "RUSTSEC-2024-0414",
+    "RUSTSEC-2024-0415",
+    "RUSTSEC-2024-0416",
+    "RUSTSEC-2024-0417",
+    "RUSTSEC-2024-0418",
+    "RUSTSEC-2024-0419",
+    "RUSTSEC-2024-0420",
+    "RUSTSEC-2024-0429",
+
+    # unmaintained `unic-*` family, via urlpattern -> tauri-utils (Tauri URL
+    # matching). Transitive; nothing DocBunker can upgrade.
+    "RUSTSEC-2025-0075",
+    "RUSTSEC-2025-0080",
+    "RUSTSEC-2025-0081",
+    "RUSTSEC-2025-0098",
+    "RUSTSEC-2025-0100",
+]

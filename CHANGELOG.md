@@ -16,6 +16,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: landing page with download options, browser extension page,
   git-revision dates, normalized ADR status headers.
 
+### Changed
+
+- Upgraded `quick-xml` from 0.37 to 0.41, clearing RUSTSEC-2026-0194/0195
+  (unbounded namespace-declaration allocation). Since quick-xml 0.38 reports
+  entity references as separate `GeneralRef` events, the text extractors now
+  decode them there under the same ADR-007 policy as before: only the five
+  predefined entities and numeric references; custom entities stay unexpanded.
+- Added `audit.toml`: documented cargo-audit exceptions for unmaintained
+  transitive crates only (ttf-parser via fontdue, gtk-rs 0.18 stack via
+  Tauri on Linux, `unic-*` via tauri-utils). No vulnerability-class advisory
+  is ignored.
+
+### Fixed
+
+- CI: `cargo-fuzz` is installed from a prebuilt binary (compiling it against
+  current nightlies fails), the musl worker build installs `musl-tools` and
+  points `cc` at `musl-gcc`, and the supply-chain job pins a resolvable
+  `actions/upload-artifact` commit.
+
 ## [0.1.0] - 2026-08-18
 
 First public release. DocBunker is a cross-platform desktop viewer for

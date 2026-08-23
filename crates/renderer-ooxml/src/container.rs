@@ -105,6 +105,22 @@ pub fn find_entry(archive: &mut ZipArchive<std::io::Cursor<Vec<u8>>>, name: &str
     })
 }
 
+/// Decode one general-entity reference body (`amp`, `lt`, `gt`, `quot`,
+/// `apos`, `#233`, `#xE9`, ...) under the ADR-007 policy: only the five
+/// predefined entities and numeric character references are decoded;
+/// anything else (custom or DTD-declared entities) is dropped, never
+/// expanded.
+pub fn decode_reference(reference: &[u8]) -> Option<char> {
+    match reference {
+        b"amp" => Some('&'),
+        b"lt" => Some('<'),
+        b"gt" => Some('>'),
+        b"quot" => Some('"'),
+        b"apos" => Some('\''),
+        other => decode_numeric(other),
+    }
+}
+
 /// Decode a text run: the five predefined entities and numeric character
 /// references are decoded; anything else (`&foo;`) is dropped. Never expands.
 ///
@@ -129,20 +145,12 @@ pub fn decode_text(raw: &[u8]) -> String {
         let Some(end) = raw[index + 1..].iter().position(|b| *b == b';') else {
             break;
         };
-        let end = index + 1 + end;
-        let entity = &raw[index + 1..end];
-        let decoded = match entity {
-            b"amp" => Some('&'),
-            b"lt" => Some('<'),
-            b"gt" => Some('>'),
-            b"quot" => Some('"'),
-            b"apos" => Some('\''),
-            _ => decode_numeric(entity),
-        };
-        if let Some(ch) = decoded {
+        if let Some(ch) = decode_reference(&raw[index + 1..index + 1 + end]) {
             out.push(ch);
         }
-        index = end + 1;
+        // Continue past the closing `;`; unknown entities are dropped whole
+        // (`&lol2;&amp;` yields `&`, not `lol2&`).
+        index += end + 2;
     }
     out
 }
@@ -214,6 +222,9 @@ pub fn extract_markup_text(
 
     let mut line = String::new();
     let mut skip_depth: Option<usize> = None;
+    // Whitespace-only text runs are dropped, but a reference that follows one
+    // still needs its separator (`a &amp; b` must stay `a & b`).
+    let mut after_blank_run = false;
     loop {
         match reader.read_event() {
             Ok(Event::Start(start)) => {
@@ -227,6 +238,7 @@ pub fn extract_markup_text(
                 } else if is_block_tag_start(&local) {
                     flush_line(out, &mut line, truncated);
                 }
+                after_blank_run = false;
             }
             Ok(Event::Empty(empty)) => {
                 let local = empty.local_name().into_inner();
@@ -251,9 +263,36 @@ pub fn extract_markup_text(
                     continue;
                 }
                 let decoded = decode_text(text.as_ref());
-                if !decoded.trim().is_empty() {
+                after_blank_run = decoded.trim().is_empty();
+                if !after_blank_run {
                     if line.len() + decoded.len() > MAX_TEXT_CHARS {
                         // Cut at a char boundary; slicing mid-character panics.
+                        let room = MAX_TEXT_CHARS - line.len();
+                        let cut = floor_char_boundary(&decoded, room);
+                        line.push_str(&decoded[..cut]);
+                    } else {
+                        line.push_str(&decoded);
+                    }
+                }
+            }
+            Ok(Event::GeneralRef(reference)) => {
+                // Since quick-xml 0.38, predefined entities and numeric
+                // character references arrive here instead of inside Text.
+                // Custom entities must stay unexpanded (ADR-007), so only
+                // the safe decoder decides what becomes visible text.
+                if skip_depth.is_some() {
+                    continue;
+                }
+                if let Some(decoded) = decode_reference(reference.as_ref()).map(String::from) {
+                    if !decoded.trim().is_empty()
+                        && after_blank_run
+                        && !line.is_empty()
+                        && !line.ends_with(' ')
+                    {
+                        line.push(' ');
+                    }
+                    after_blank_run = false;
+                    if line.len() + decoded.len() > MAX_TEXT_CHARS {
                         let room = MAX_TEXT_CHARS - line.len();
                         let cut = floor_char_boundary(&decoded, room);
                         line.push_str(&decoded[..cut]);

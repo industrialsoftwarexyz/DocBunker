@@ -134,8 +134,16 @@ jobs:
           toolchain: 1.88.0
           targets: x86_64-unknown-linux-musl
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      # libwebp-sys compiles C code; the musl target needs a musl-capable cc.
+      - name: Install musl toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
       - name: Build static worker
         run: cargo build --locked -p docbunker-renderer-worker --target x86_64-unknown-linux-musl --release
+        env:
+          CC_X86_64_UNKNOWN_LINUX_MUSL: musl-gcc
+          AR_X86_64_UNKNOWN_LINUX_MUSL: ar
       - name: Build rootfs
         run: |
           sh sandbox/scripts/build-rootfs.sh "$PWD/sandbox/rootfs" \
@@ -144,6 +152,9 @@ jobs:
         run: |
           cargo build --locked -p docbunker-sandbox --bin escape-worker \
             --target x86_64-unknown-linux-musl --release
+        env:
+          CC_X86_64_UNKNOWN_LINUX_MUSL: musl-gcc
+          AR_X86_64_UNKNOWN_LINUX_MUSL: ar
       - name: Run runsc end-to-end test (as root)
         run: |
           sudo env DOCBUNKER_RUNSC_BIN=runsc DOCBUNKER_ROOTFS="$PWD/sandbox/rootfs" \
@@ -159,9 +170,14 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Install nightly + cargo-fuzz
+      - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@7c8d7d138f5c09cef361f8214cf96882cd029cdb # nightly
-      - run: cargo install cargo-fuzz --locked
+      # Prebuilt binary: `cargo install cargo-fuzz` fails to compile against
+      # current nightlies (seen 2026-08, cargo-fuzz 0.13.2).
+      - name: Install cargo-fuzz
+        uses: taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780 # v2
+        with:
+          tool: cargo-fuzz
       - name: Run protocol fuzz targets
         run: |
           cargo +nightly fuzz run --manifest-path crates/protocol/fuzz/Cargo.toml framing_decode -- -max_total_time=30
@@ -228,7 +244,7 @@ jobs:
           cargo cyclonedx --format json --output ../../sbom/sbom-app.json
           cd ../..
           ls -la sbom
-      - uses: actions/upload-artifact@65c4c4a1ddee5b7f6983948297ad07d6d0c1c0c1 # v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: docbunker-sbom
           path: sbom/

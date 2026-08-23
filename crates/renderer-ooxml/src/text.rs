@@ -21,7 +21,8 @@ use quick_xml::Reader;
 use zip::ZipArchive;
 
 use crate::container::{
-    decode_text, entry_within_caps, floor_char_boundary, push_line, read_entry_bounded,
+    decode_reference, decode_text, entry_within_caps, floor_char_boundary, push_line,
+    read_entry_bounded,
 };
 use crate::MAX_ZIP_ENTRIES;
 
@@ -69,19 +70,24 @@ fn extract_part_xml(
     out: &mut Vec<String>,
     truncated: &mut bool,
 ) -> Result<(), RenderError> {
-    // Non-validating parse: DTDs and custom entities are ignored (they stay
-    // raw in Text events and are dropped by `decode_text`), so no entity
-    // expansion can ever happen (billion-laughs safe).
+    // Non-validating parse: DTDs and custom entities are ignored. Since
+    // quick-xml 0.38, predefined entities and numeric references arrive as
+    // `GeneralRef` events; `decode_reference` expands only those, so no
+    // entity expansion can ever happen (billion-laughs safe).
     let mut reader = Reader::from_reader(xml);
 
     let mut in_text_tag = false;
     let mut line = String::new();
     let mut line_truncated = false;
+    // Whitespace-only text runs are dropped, but a reference that follows one
+    // still needs its separator (`caf&#xE9; &#233;` must stay `café é`).
+    let mut after_blank_run = false;
     loop {
         match reader.read_event() {
             Ok(Event::Start(start)) => {
                 let local = start.local_name().as_ref().to_vec();
                 in_text_tag = is_text_tag(&local);
+                after_blank_run = false;
             }
             Ok(Event::Empty(empty)) => {
                 let local = empty.local_name().into_inner();
@@ -95,10 +101,38 @@ fn extract_part_xml(
                     continue;
                 }
                 let decoded = decode_text(text.as_ref());
-                if !decoded.trim().is_empty() {
+                after_blank_run = decoded.trim().is_empty();
+                if !after_blank_run {
                     if line.len() + decoded.len() > MAX_TEXT_CHARS {
                         line_truncated = true;
                         // Cut at a char boundary; slicing mid-character panics.
+                        let room = MAX_TEXT_CHARS - line.len();
+                        let cut = floor_char_boundary(&decoded, room);
+                        line.push_str(&decoded[..cut]);
+                    } else {
+                        line.push_str(&decoded);
+                    }
+                }
+            }
+            Ok(Event::GeneralRef(reference)) => {
+                // Since quick-xml 0.38, predefined entities and numeric
+                // character references arrive here instead of inside Text.
+                // `decode_reference` keeps custom entities unexpanded
+                // (billion-laughs safe, ADR-007).
+                if !in_text_tag {
+                    continue;
+                }
+                if let Some(decoded) = decode_reference(reference.as_ref()).map(String::from) {
+                    if !decoded.trim().is_empty()
+                        && after_blank_run
+                        && !line.is_empty()
+                        && !line.ends_with(' ')
+                    {
+                        line.push(' ');
+                    }
+                    after_blank_run = false;
+                    if line.len() + decoded.len() > MAX_TEXT_CHARS {
+                        line_truncated = true;
                         let room = MAX_TEXT_CHARS - line.len();
                         let cut = floor_char_boundary(&decoded, room);
                         line.push_str(&decoded[..cut]);
@@ -290,6 +324,11 @@ fn extract_table(
             Ok(Event::Text(text)) => {
                 if cell_ref.is_some() {
                     cell_text.push_str(&crate::container::decode_text(text.as_ref()));
+                }
+            }
+            Ok(Event::GeneralRef(reference)) => {
+                if let Some(decoded) = crate::container::decode_reference(reference.as_ref()) {
+                    cell_text.push(decoded);
                 }
             }
             Ok(Event::End(end)) => match end.local_name().as_ref() {
