@@ -695,6 +695,11 @@ fn runsc_escape_test() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
+    // Raw transcript: keeps debugging possible when the worker dies midway.
+    println!("RAW_STATUS: {:?}", output.status);
+    println!("RAW_STDOUT: {stdout}");
+    println!("RAW_STDERR: {stderr}");
+
     // Parse the adversary's report.
     let mut results: Vec<(String, bool, String)> = Vec::new();
     let mut report_done = false;

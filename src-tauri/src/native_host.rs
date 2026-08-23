@@ -9,6 +9,7 @@
 #[cfg(any(target_os = "windows", test))]
 use std::path::PathBuf;
 
+#[cfg(any(target_os = "windows", test))]
 use docbunker_native_broker::{EXTENSION_ORIGIN, HOST_NAME};
 
 /// Locate the broker binary (a sibling of the app executable).

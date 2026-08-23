@@ -10,6 +10,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 docbunker-protocol = { path = ".." }
+docbunker-renderer-api = { path = "../../renderer-api" }
 
 # Prevent the fuzz crate from accidentally being pulled into the workspace build.
 [workspace]
