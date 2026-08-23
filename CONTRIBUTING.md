@@ -74,7 +74,7 @@ isolation use `DOCBUNKER_BACKEND=subprocess` (dev only). Production backends
 - Formatting of `.sh` scripts: LF endings, `sh` not `bash`, `set -eu`.
   `.gitattributes` enforces this.
 - Behavior that affects the security profile needs an ADR update or a new ADR
-  in `docs/adr/` (see the ADR template in `docs/roadmap.md`).
+  in `docs/adr/`; follow the format of the existing numbered records there.
 
 ## Testing expectations
 

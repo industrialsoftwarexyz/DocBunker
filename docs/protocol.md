@@ -43,9 +43,12 @@ without touching message handling.
 
 ## Handshake
 
-1. Host → `Hello { protocol_version, max_document_size, max_ipc_message }`
-2. Worker → `HelloOk { protocol_version, max_page_width, max_page_height, max_pixel_buffer,
-   max_document_size, max_ipc_message }`
+1. Host → `Hello { protocol_version, max_document_size, max_ipc_message, shm_capable }`
+2. Worker → `HelloOk { protocol_version, max_document_size, max_ipc_message, max_page_width,
+   max_page_height, max_pixel_buffer, shm_name?, shm_capacity? }`
+
+The `shm_*` fields are the protocol v2 shared-memory negotiation (ADR-009): the host asks, the
+worker may publish a bounded region or omit the fields and keep using in-frame bytes.
 
 Both sides compute negotiated limits as the **minimum** of their own caps and the peer's
 advertised caps. Every later message is validated against the negotiated limits by **both** sides
@@ -71,7 +74,7 @@ Responses (`Response`):
 | 0x80 | `HelloOk` | `HelloOk` |
 | 0x81 | `DocumentOpened` | `{ document_id, info: DocumentInfoWire }` |
 | 0x82 | `DocumentInfo` | `{ document_id, info: DocumentInfoWire }` |
-| 0x83 | `PageRendered` | `{ document_id, page, width, height, stride, pixel_format, bytes }` |
+| 0x83 | `PageRendered` | `{ document_id, page, width, height, stride, pixel_format, bytes, shm_len? }` |
 | 0x84 | `Closed` | `{ document_id }` |
 | 0x85 | `Pong` | `{ nonce }` |
 | 0x86 | `Error` | `{ code: u8, message: String(≤ MAX_STRING_LENGTH) }` |
@@ -79,7 +82,14 @@ Responses (`Response`):
 `DocumentInfoWire` is deliberately minimal: `{ page_count: u32, width: u32, height: u32,
 format: u8 }`. No title/text extraction in the MVP — less metadata means less attack surface.
 `format` values: `0` unknown, `1` PDF, `2` PNG, `3` JPEG, `4` WebP, `5` OOXML (Office
-text preview, ADR-007); unknown values are rejected by validation on both sides.
+text preview, ADR-007), `6` GIF, `7` TIFF, `8` BMP, `9` EPUB (ADR-010), `10` RTF,
+`11` HTML. Values outside this list are rejected by validation on both sides. The worker
+currently dispatches PDF/PNG/JPEG/WebP/OOXML; the other detected formats fail closed with
+`UnsupportedFormat` until their renderers are wired into the dispatch.
+
+When `shm_len` is set in `PageRendered`, `bytes` must be empty and the raster starts at offset 0 of
+the negotiated shared-memory region; the host copies it out and validates it exactly like an
+in-frame buffer.
 
 `pixel_format` is `u8`; currently only `Rgba8888 = 1` is defined. `stride` must be `≥ width × 4`.
 

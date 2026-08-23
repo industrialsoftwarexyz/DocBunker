@@ -27,14 +27,16 @@ cargo +nightly install cargo-fuzz
 cargo +nightly fuzz run --manifest-path crates/protocol/fuzz/Cargo.toml framing_decode
 ```
 
-CI compiles the fuzz targets (`cargo fuzz build`) to keep them building.
+CI runs each target briefly (`fuzz run`, 30 s) on a nightly job to keep them
+both building and finding inputs.
 Image/PDF codecs are **never** fuzzed from the host; any renderer fuzzing
 happens inside the sandbox toolchain (Phase 4+).
 
 ## Mapping to the requested integration cases
 
-- Valid PDF / valid image → decoded by the worker (`pdf-mupdf` feature for PDF,
-  always-on image decoders), verified over the subprocess protocol.
+- Valid PDF / valid image → decoded by the worker (Hayro by default for PDF,
+  `pdf-mupdf` opt-in; always-on image decoders), verified over the subprocess
+  protocol.
 - Corrupt PDF / truncated image → rejected with a safe error.
 - Absurd dimensions → rejected by limits (`ResourceLimitExceeded`) at every
   layer, including a patched-IHDR PNG fixture.

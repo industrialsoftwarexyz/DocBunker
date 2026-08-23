@@ -1,9 +1,9 @@
 # Roadmap
 
-Implementation is phase-based. Each phase ends with a compiling, tested repository. Phase 1 is
-complete; the rest are planned.
+Implementation is phase-based. Each phase ends with a compiling, tested repository. Phases 1
+through 8 are complete.
 
-## Phase 1 — Foundation, mock sandbox, mock renderer ✅
+## Phase 1 — Foundation, mock sandbox, mock renderer (done)
 
 - Cargo workspace, Tauri 2 shell, Vue 3/TS frontend, `crates/` split.
 - Binary IPC protocol (versioned, framed, validated, unit-tested).
@@ -13,7 +13,7 @@ complete; the rest are planned.
 - Docs: architecture, threat model, protocol, sandbox, ADRs 001–005.
 - CI: fmt, clippy, tests, frontend lint/build, cargo audit, license check.
 
-## Phase 2 — Real image rendering (PNG/JPEG/WebP) ✅
+## Phase 2 — Real image rendering (PNG/JPEG/WebP) (done)
 
 - New crate `crates/renderer-image`: `png` (pure Rust), `jpeg-decoder` (pure
   Rust), `webp`/libwebp — dimension caps and decompression-bomb protection
@@ -25,7 +25,7 @@ complete; the rest are planned.
 - Integration tests with real PNG/JPEG/WebP fixtures (valid, truncated,
   absurd dimensions) over the worker subprocess.
 
-## Phase 3 — PDF rendering ✅
+## Phase 3 — PDF rendering (done)
 
 - Default `PdfRenderer` over Hayro 0.4 (Apache-2.0), a pure-Rust,
   rasterize-only engine behind the `DocumentRenderer` seam.
@@ -36,7 +36,7 @@ complete; the rest are planned.
   AGPL-compliant deployments.
 - Tests: valid PDF, corrupt PDF, page out of range, and QEMU/gVisor E2E.
 
-## Phase 4 — Linux `runsc` sandbox ✅ (Linux; CI-verified)
+## Phase 4 — Linux `runsc` sandbox (done, Linux, CI-verified)
 
 - `OciBundle` generator (platform-independent, unit-tested): read-only
   rootfs, no capabilities, unprivileged user, empty network namespace,
@@ -48,7 +48,7 @@ complete; the rest are planned.
 - End-to-end runsc test (`#[ignore]`, opt-in) + `runsc`-installing CI job.
 - All `runsc` invocations use `std::process::Command` with separated args.
 
-## Phase 5 — Hardening ✅ (baked into Phase 4)
+## Phase 5 — Hardening (done, folded into Phase 4)
 
 - `--network=none`, read-only rootfs, unprivileged user, capability drop,
   cgroup memory/CPU/PID limits, empty worker environment, per-op timeouts,
@@ -56,14 +56,14 @@ complete; the rest are planned.
 - Protocol fuzz targets exist (`crates/protocol/fuzz`,
   `crates/renderer-api/fuzz`); CI compiles them with `cargo-fuzz`.
 
-## Phase 6 — Cross-platform VM backend ✅
+## Phase 6 — Cross-platform VM backend (done)
 
 - `QemuVmBackend` uses QEMU + WHPX (Windows), HVF (macOS), or KVM (Linux) as
   the outer boundary and a prebuilt Linux initramfs with gVisor as the inner
   boundary. Architecture-specific release images and host smoke tests remain
   release artifacts rather than source-controlled files.
 
-## Phase 7 — Office containers (text preview) ✅
+## Phase 7 — Office containers (text preview) (done)
 
 - `DocumentFormat::Ooxml` (wire value 5) + new crate `renderer-ooxml`:
   docx/pptx/xlsx containers, text-only extraction with the ADR-007 container
@@ -79,7 +79,7 @@ complete; the rest are planned.
 - Embedded PNG/JPEG/WebP media from `*/media/` folders is also previewed
   below the text (ADR-008), with bounded counts/bytes and sequential decode.
 
-## Phase 8 — Shared-memory page-buffer transport ✅
+## Phase 8 — Shared-memory page-buffer transport (done)
 
 - Additive protocol v2 (ADR-009): `HelloRequest.shm_capable` /
   `HelloOk.shm_name|shm_capacity` / `PageRendered.shm_len`. The worker
@@ -88,3 +88,8 @@ complete; the rest are planned.
   unchanged validation pipeline. Only the dev `SubprocessBackend` advertises
   shared memory; `runsc`/QEMU and the in-process mock keep frame copies.
 - Worker falls back to frames automatically when region creation fails.
+
+## Next
+
+- Wire the already-tested GIF/TIFF/BMP and EPUB/RTF/HTML renderers into the
+  worker dispatch (ADR-010) and extend the file-type lists.

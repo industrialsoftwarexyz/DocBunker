@@ -35,10 +35,12 @@ These components are trusted and must therefore stay small, audited and free of 
 
 - The **document bytes** themselves.
 - The **`renderer-worker`** process and every library it links (image decoders
-  `png`/`jpeg-decoder`/libwebp, MuPDF when the AGPL `pdf-mupdf` feature is
-  enabled, musl libc, ...). The worker is treated as potentially compromised:
-  it must run unprivileged, without network, with a read-only rootfs, resource
-  limits, and a strict timeout on every operation.
+  `png`, `jpeg-decoder`, `webp`/libwebp, the `image` crate for GIF/TIFF/BMP,
+  Hayro for PDF — or MuPDF when the AGPL `pdf-mupdf` feature is enabled — plus
+  musl libc and the ZIP/XML/RTF/HTML parsers in `renderer-ooxml`). The worker is
+  treated as potentially compromised: it must run unprivileged, without network,
+  with a read-only rootfs, resource limits, and a strict timeout on every
+  operation.
 - The **Chrome extension and Gmail content** — the extension can only ask the
   broker to open a supported, signature-checked file inside the user's
   Downloads folder (`DOCBUNKER_ALLOWED_OPEN_DIR` to override); it cannot read

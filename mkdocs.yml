@@ -49,10 +49,14 @@ theme:
 
 plugins:
   - search:
+  - git-revision-date-localized:
+      type: date
+      enable_creation_date: false
 
 markdown_extensions:
   - admonition
   - tables
+  - md_in_html
   - toc:
       permalink: true
   - pymdownx.details
@@ -89,6 +93,7 @@ nav:
   - Protocol: protocol.md
   - Threat model: threat-model.md
   - Roadmap: roadmap.md
+  - Browser extension: browser-extension.md
   - ADRs:
       - ADR index: adr/index.md
       - ADR-001: adr/ADR-001-tauri-as-desktop-shell.md
@@ -100,6 +105,7 @@ nav:
       - ADR-007: adr/ADR-007-ooxml-text-preview.md
       - ADR-008: adr/ADR-008-ooxml-embedded-images.md
       - ADR-009: adr/ADR-009-shared-memory-transport.md
+      - ADR-010: adr/ADR-010-gif-tiff-bmp-epub-rtf-html.md
   - Changelog: changelog.md
   - Contributing: contributing.md
   - Security: security.md

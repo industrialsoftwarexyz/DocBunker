@@ -1,5 +1,7 @@
 # ADR-002: Raster-only document boundary
 
+> Status: accepted and implemented (Phase 1).
+
 ## Context
 What may cross the sandbox boundary back to the host? Returning the original document, HTML, SVG,
 PDF objects, extracted text, or URLs would each be a new attack surface in the trusted side. We

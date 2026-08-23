@@ -40,7 +40,7 @@ The Sandbox Manager drives `runsc` directly (no Docker/Podman):
 | --- | --- |
 | User | unprivileged uid/gid 65534, `no_new_privileges` |
 | Rootfs | read-only (`readonlyRootfs: true`); no host mounts |
-| /tmp | private tmpfs, size capped (half the memory limit, ≤ 256 MiB), `mode=0700` |
+| /tmp | private tmpfs, fixed 256 MiB cap (`size=262144k`), `mode=0700` |
 | Network | `--network=none` (empty netns in config) |
 | Devices | empty device list |
 | Capabilities | none (all dropped) |

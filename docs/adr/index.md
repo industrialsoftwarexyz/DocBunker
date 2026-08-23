@@ -14,3 +14,4 @@ understand why the project is shaped the way it is, read them in order.
 | [ADR-007](ADR-007-ooxml-text-preview.md) | OOXML preview with container caps | Zip bombs and entity expansion need hard, pre-decode caps. |
 | [ADR-008](ADR-008-ooxml-embedded-images.md) | Embedded office media preview | Bounded counts/bytes, sequential decode, same validation path. |
 | [ADR-009](ADR-009-shared-memory-transport.md) | Shared-memory page transport (protocol v2) | 0-copy frames for the local dev backend. |
+| [ADR-010](ADR-010-gif-tiff-bmp-epub-rtf-html.md) | GIF/TIFF/BMP images, EPUB/RTF/HTML text preview | Same boundaries absorb the formats users actually open; dispatch stays fail-closed. |

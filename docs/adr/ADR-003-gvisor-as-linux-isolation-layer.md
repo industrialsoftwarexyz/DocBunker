@@ -1,5 +1,7 @@
 # ADR-003: gVisor as Linux isolation layer
 
+> Status: accepted and implemented (Phase 4, Linux).
+
 ## Context
 We need an isolation layer that contains an exploited renderer on Linux. Candidates: plain process
 seccomp (weak), namespaces+cgroups (kernel attack surface still full), Docker/Podman (a dependency

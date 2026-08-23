@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Release workflow (`release.yml`): per-platform bundles, SBOM and SHA256SUMS
+  attached to a draft release on version tags.
+- `doc_consistency` test that keeps documented limits, wire values and
+  environment variable names in sync with the code.
+- Docs: landing page with download options, browser extension page,
+  git-revision dates, normalized ADR status headers.
+
 ## [0.1.0] - 2026-08-18
 
 First public release. DocBunker is a cross-platform desktop viewer for
@@ -45,7 +56,7 @@ model.
 - CI: fmt, clippy `-D warnings`, full test suite on three OSes, frontend
   audit/lint/build, runsc end-to-end (Linux, main), fuzz targets (nightly),
   `cargo audit` + `cargo deny`.
-- Docs: architecture, threat model, sandbox, protocol, roadmap, ADRs 001-013.
+- Docs: architecture, threat model, sandbox, protocol, roadmap, ADRs 001-010.
 
 ### Fixed
 
@@ -90,7 +101,7 @@ model.
 
 - Prebuilt VM/runsc images must be rebuilt to carry the newest worker and
   protocol v2 (`sandbox/scripts/build-vm-assets.sh`; a stale image fails the
-  handshake). See `docs/sandbox.md` and `docs/release.md`.
+  handshake). See `docs/sandbox.md`.
 - QEMU is not redistributed in installers; set `DOCBUNKER_QEMU_BIN` or install
   QEMU (license and dependency review required, see `sandbox/vm/README.md`).
 - The MuPDF/AGPL feature is opt-in and NOT part of the binary you ship by

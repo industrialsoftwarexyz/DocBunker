@@ -23,10 +23,10 @@ decisions were made.
 ├──────────────────────────────────────────────────────────────────┤
 │  Sandbox (trusted)         crates/sandbox/                       │
 │  - SandboxBackend trait, SandboxTransport trait                  │
-│  - MockBackend (Phase 1) / runsc backend (Phase 4+)              │
+│  - mock / subprocess (dev) / runsc / vm backends                 │
 ├════════════════════════════ ISOLATION BOUNDARY ══════════════════┤
 │  renderer-worker (untrusted)  crates/renderer-worker/            │
-│  - protocol loop over the transport (stdin/stdout today)         │
+│  - protocol loop over the transport (pipes today)                │
 │  - renderer dispatch: PNG/JPEG/WebP, OOXML text preview, Hayro (or MuPDF) for PDF │
 │  - returns RGBA + minimal metadata only                          │
 └──────────────────────────────────────────────────────────────────┘
@@ -44,7 +44,7 @@ decisions were made.
 Rules that must never be relaxed:
 
 1. The document bytes and everything derived from them are untrusted in the host.
-2. The host never parses document formats. MockBackend in Phase 1 does not parse either — it
+2. The host never parses document formats. `MockBackend` does not parse either — it
    *detects* the format from magic bytes and renders a generated test page.
 3. The worker never returns HTML, JS, SVG, PDF objects, URLs, or arbitrary files.
 4. Every message is validated against hard limits with checked arithmetic (`usize::checked_mul` etc.)
@@ -75,18 +75,23 @@ to transport RGBA.
 ### `crates/sandbox`
 Host-side sandbox management:
 
-- `SandboxBackend` — the trait from the architecture spec (`initialize`, `start_session`,
+- `SandboxBackend` — the trait every backend implements (`initialize`, `start_session`,
   `send_document`, `get_document_info`, `render_page`, `close_session`)
 - `SandboxTransport` — the replaceable IPC seam (`send(Request) -> Response`)
 - `transport::InProcessTransport` — in-process transport over the real `Worker` code path (used by
   the mock backend and tests; proves the protocol layer without spawning processes)
-- `MockBackend` — full session lifecycle using `InProcessTransport`; **no OS-level isolation** (mock)
-- `platforms/linux.rs` / `windows.rs` / `macos.rs` — stubs that return `BackendUnsupported` and
-  document the planned implementation
+- `process::ProcessTransport` — piped stdio with per-operation wall-clock deadlines
+- `MockBackend` — full session lifecycle using `InProcessTransport`; **no OS-level isolation**
+- `SubprocessBackend` — bare worker child process, real decoding, still no isolation (development only)
+- `platforms/linux.rs` — `RunscBackend`: drives gVisor/`runsc` directly (Linux production)
+- `platforms/vm/` — `QemuVmBackend`: QEMU + WHPX/HVF/KVM with gVisor inside (production default)
 
 ### `crates/renderer-worker`
-The untrusted binary. In Phase 1 it runs `MockRenderer`; Phase 2/3 replace the factory with real
-decoders. It has no UI, no network, no updater, no shell, no link opening.
+The untrusted binary. Its factory dispatches on detected format: PNG/JPEG/WebP go to
+`renderer-image`, Office containers to `renderer-ooxml` (text preview), PDF to Hayro or, behind the
+opt-in `pdf-mupdf` feature, MuPDF. GIF/TIFF/BMP and EPUB/RTF/HTML decoders exist and are tested but
+are not wired into the dispatch yet. The worker has no UI, no network, no updater, no shell, no link
+opening.
 
 ### `crates/core`
 Trusted orchestration:
@@ -116,21 +121,23 @@ close(handle)
 ```
 
 If any backend call fails the document is left open but the error is surfaced; `close` always
-destroys the session. Timeout/crash handling is enforced by the backend (Phase 4) and reported as
+destroys the session. Timeout/crash handling is enforced by the backend and reported as
 `SandboxCrashed` / `Timeout`.
 
 ## Concurrency
 
 - All backend calls are synchronous and run inside `tauri::async_runtime::spawn_blocking`, so the UI
   thread never blocks on parsing/rendering.
-- `DocumentManager` is `Arc<Mutex<...>>`: operations are serialized. This is a deliberate Phase 1
-  simplification — Phase 4 will add per-document task queues and cooperative cancellation.
-- Tokio is used implicitly through Tauri's async runtime; no direct Tokio dependency in Phase 1.
+- `DocumentManager` is `Arc<Mutex<...>>`: operations are serialized. This is a deliberate
+  simplification; per-document task queues and cooperative cancellation can come later if profiling
+  ever demands them.
+- Tokio is used implicitly through Tauri's async runtime; no direct Tokio dependency.
 
 ## Memory strategy
 
 - Page buffers are capped by `MAX_PIXEL_BUFFER` (checked arithmetic on `width × height × 4`).
-- The host keeps an LRU cache of 3 rendered pages; copies of cached buffers are made on read
-  (accepted for the MVP, replaced by shared memory / ring buffers in a later phase).
+- The host keeps an LRU cache of 3 rendered pages; copies of cached buffers are made on read.
+  The dev `subprocess` backend can negotiate a shared-memory region instead (ADR-009); the isolated
+  backends still transfer frames bytewise, which is acceptable at these sizes.
 - The worker is bounded by `MAX_IPC_MESSAGE`; the host queues at most one response and terminates
   sessions that flood, send unsolicited frames, or miss the end-to-end operation deadline.

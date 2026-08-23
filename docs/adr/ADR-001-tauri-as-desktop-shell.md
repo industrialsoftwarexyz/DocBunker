@@ -1,5 +1,7 @@
 # ADR-001: Tauri as desktop shell
 
+> Status: accepted and implemented (Phase 1).
+
 ## Context
 We need a cross-platform (Windows/macOS/Linux) desktop shell with a small, controllable trust
 surface. Options: Electron, Tauri, Qt, native per-platform. Electron ships a full Chromium+Node

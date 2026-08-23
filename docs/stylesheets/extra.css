@@ -29,8 +29,53 @@
   box-shadow: var(--md-shadow-z1, 0 0.2rem 0.5rem rgba(0, 0, 0, 0.1));
 }
 
-.hero-card h2 {
+.hero-card h2,
+.hero-card h3 {
   margin-top: 0;
+}
+
+/* Landing hero */
+.landing-logo {
+  display: block;
+  width: 120px;
+  margin: 1.5rem auto 0.75rem;
+}
+
+.landing-cta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0 2rem;
+}
+
+.btn {
+  display: inline-block;
+  padding: 0.55rem 1.4rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--md-primary-fg-color);
+  color: var(--md-primary-fg-color);
+  font-weight: 600;
+}
+
+.btn:hover,
+.btn:focus {
+  background: color-mix(in srgb, var(--md-primary-fg-color) 14%, transparent);
+  color: var(--md-primary-fg-color);
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: #0d6efd;
+  border-color: #0d6efd;
+  color: #fff;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background: #0a58ca;
+  border-color: #0a58ca;
+  color: #fff;
 }
 
 /* Slightly friendlier admonitions */

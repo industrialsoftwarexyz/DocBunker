@@ -1,5 +1,7 @@
 # ADR-004: Binary IPC protocol
 
+> Status: accepted and implemented; extended by protocol v2 (ADR-009).
+
 ## Context
 Host and worker must exchange documents (in) and raster pages (out). If this channel is JSON with
 arbitrary structures, both sides get a parser with dynamic allocation and no natural size limits.

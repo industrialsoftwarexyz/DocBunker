@@ -140,7 +140,7 @@ speaking the protocol over pipes.
 Hardening profile (all of this is in the OCI config):
 
 - user: unprivileged uid/gid 65534
-- rootfs: read-only, no host mounts, `/tmp` a private tmpfs (≤ 256 MiB)
+- rootfs: read-only, no host mounts, `/tmp` a private tmpfs capped at 256 MiB
 - network: empty netns (`--network=none`)
 - capabilities: none
 - cgroup limits: memory, CPU quota, PID limit
