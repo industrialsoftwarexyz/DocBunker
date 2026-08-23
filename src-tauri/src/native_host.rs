@@ -9,7 +9,7 @@
 #[cfg(any(target_os = "windows", test))]
 use std::path::PathBuf;
 
-#[cfg(any(target_os = "windows", test))]
+#[cfg(target_os = "windows")]
 use docbunker_native_broker::{EXTENSION_ORIGIN, HOST_NAME};
 
 /// Locate the broker binary (a sibling of the app executable).
@@ -33,7 +33,7 @@ pub fn broker_binary() -> Option<PathBuf> {
 
 /// The broker must exist before we point the browser at it; otherwise Chrome
 /// would either fail loudly (misconfiguration) or, worse, invoke nothing.
-#[cfg(any(target_os = "windows", test))]
+#[cfg(target_os = "windows")]
 fn broker_binary_or_error() -> Result<PathBuf, String> {
     broker_binary()
         .filter(|path| path.is_file())

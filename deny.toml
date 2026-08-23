@@ -18,6 +18,8 @@ allow = [
     "Unicode-3.0",
     "OpenSSL",
     "MPL-2.0",
+    # target-lexicon (build-dependency of the gtk-sys stack)
+    "Apache-2.0 WITH LLVM-exception",
 ]
 confidence-threshold = 0.8
 # MuPDF is only reachable behind the opt-in pdf-mupdf feature, so its AGPL

@@ -11,7 +11,8 @@ use docbunker_protocol::validate::{validate_error_response, NegotiatedLimits};
 use docbunker_renderer_api::limits;
 
 fuzz_target!(|data: &[u8]| {
-    if data.len() < 8 {
+    // The harness reads twelve bytes below; shorter inputs are noise.
+    if data.len() < 12 {
         return;
     }
 

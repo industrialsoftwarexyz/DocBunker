@@ -704,7 +704,9 @@ fn runsc_escape_test() {
     let mut results: Vec<(String, bool, String)> = Vec::new();
     let mut report_done = false;
     for line in stdout.lines() {
-        if line.contains("REPORT_DONE") {
+        // The worker signals completion both explicitly and through its final
+        // report line; accept either form.
+        if line.contains("REPORT_DONE") || line.contains("ESCAPE|report-done|PASS") {
             report_done = true;
         }
         if let Some(rest) = line.strip_prefix("ESCAPE|") {
