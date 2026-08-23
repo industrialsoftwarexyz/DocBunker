@@ -281,6 +281,41 @@ impl ProcessTransport {
                     };
                     #[cfg(not(unix))]
                     let opened = std::fs::OpenOptions::new().read(true).open(&path);
+                    // The worker creates the region before advertising it, but
+                    // on hosted/AV-monitored machines a brand-new file in the
+                    // temp directory can transiently fail to open (sharing
+                    // violation while a scanner holds it). Retry briefly.
+                    let opened = match opened {
+                        Ok(file) => Ok(file),
+                        Err(error) => {
+                            const ATTEMPTS: usize = 4;
+                            const BACKOFF: std::time::Duration =
+                                std::time::Duration::from_millis(50);
+                            let mut result = Err(error);
+                            for _ in 0..ATTEMPTS - 1 {
+                                std::thread::sleep(BACKOFF);
+                                #[cfg(unix)]
+                                let retry = {
+                                    use std::os::unix::fs::OpenOptionsExt;
+                                    let mut options = std::fs::OpenOptions::new();
+                                    options
+                                        .read(true)
+                                        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+                                    options.open(&path)
+                                };
+                                #[cfg(not(unix))]
+                                let retry = std::fs::OpenOptions::new().read(true).open(&path);
+                                match retry {
+                                    Ok(file) => {
+                                        result = Ok(file);
+                                        break;
+                                    }
+                                    Err(retry_error) => result = Err(retry_error),
+                                }
+                            }
+                            result
+                        }
+                    };
                     match opened
                         .and_then(|file| file.metadata().map(|metadata| (file, metadata.is_file())))
                     {
@@ -309,9 +344,9 @@ impl ProcessTransport {
                         Err(error) => {
                             tracing::warn!(%error, %name, "cannot open worker shm region");
                             transport.terminate();
-                            return Err(SandboxError::Internal(
-                                "worker advertised an unusable shm region".into(),
-                            ));
+                            return Err(SandboxError::Internal(format!(
+                                "worker advertised an unusable shm region: {error}"
+                            )));
                         }
                     }
                 }

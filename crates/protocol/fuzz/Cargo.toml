@@ -9,7 +9,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-docbunker-protocol = { path = "../.." }
+docbunker-protocol = { path = ".." }
 
 # Prevent the fuzz crate from accidentally being pulled into the workspace build.
 [workspace]

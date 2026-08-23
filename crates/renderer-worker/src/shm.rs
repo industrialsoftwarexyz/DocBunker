@@ -63,7 +63,6 @@ fn write_at(file: &File, buffer: &[u8], offset: u64) -> std::io::Result<()> {
 /// Positional read at `offset`, filling `buffer` exactly (test helper).
 #[cfg(all(unix, test))]
 fn read_exact_at(file: &File, buffer: &mut [u8], offset: u64) -> std::io::Result<()> {
-    use std::io::Read;
     use std::os::unix::fs::FileExt;
     let mut done = 0;
     while done < buffer.len() {

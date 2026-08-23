@@ -475,7 +475,7 @@ fn runsc_end_to_end() {
     );
     let tmp_base = std::env::temp_dir().join(format!("docbunker-runsc-it-{}", std::process::id()));
 
-    let config = crate::platforms::RunscConfig::new(runsc_bin, rootfs, tmp_base);
+    let config = crate::platforms::RunscConfig::new(runsc_bin, rootfs, tmp_base.clone());
     let mut backend = RunscBackend::new(config);
     backend
         .initialize()

@@ -112,8 +112,11 @@ jobs:
       # default build (see ADR-005). This job only verifies it compiles/tests.
       - name: Build with pdf-mupdf
         run: cargo build -p docbunker-renderer-worker --features pdf-mupdf
+      # MuPDF's fallback-font cache is process-global and not thread-safe
+      # (pdf_load_hail_mary_font asserts under concurrent renders), so tests
+      # must not run in parallel inside one process.
       - name: Test with pdf-mupdf
-        run: cargo test -p docbunker-renderer-worker --features pdf-mupdf
+        run: cargo test -p docbunker-renderer-worker --features pdf-mupdf -- --test-threads=1
 
   runsc-smoke:
     name: runsc end-to-end (ubuntu)
@@ -250,13 +253,12 @@ jobs:
         run: |
           cargo install cargo-cyclonedx --locked
           mkdir -p sbom
-          cd crates/renderer-worker
-          cargo cyclonedx --format json --output ../../sbom/sbom-worker.json
-          cd ../../crates/native-broker
-          cargo cyclonedx --format json --output ../../sbom/sbom-broker.json
-          cd ../../src-tauri
-          cargo cyclonedx --format json --output ../../sbom/sbom-app.json
-          cd ../..
+          for crate in crates/renderer-worker crates/native-broker src-tauri; do
+            (cd "$crate" && cargo cyclonedx --format json)
+          done
+          # Flag set differs across cargo-cyclonedx versions, so collect the
+          # generated files by name instead of passing an output flag.
+          find crates src-tauri -name '*.cdx.json' -exec cp {} sbom/ \;
           ls -la sbom
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
