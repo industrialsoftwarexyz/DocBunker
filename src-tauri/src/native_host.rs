@@ -89,8 +89,13 @@ pub fn register() -> Result<(), String> {
 mod tests {
     use super::*;
 
+    /// Serializes tests that mutate `DOCBUNKER_NATIVE_BROKER_BIN` (a process
+    /// global — parallel tests would race each other).
+    static BROKER_BIN_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn broker_name_is_platform_consistent() {
+        let _guard = BROKER_BIN_ENV_LOCK.lock().unwrap();
         let name = if cfg!(windows) {
             "docbunker-native-broker.exe"
         } else {
@@ -109,6 +114,7 @@ mod tests {
 
     #[test]
     fn broker_override_is_honored() {
+        let _guard = BROKER_BIN_ENV_LOCK.lock().unwrap();
         let path = PathBuf::from("C:\\DocBunker\\broker.exe");
         let previous = std::env::var_os("DOCBUNKER_NATIVE_BROKER_BIN");
         std::env::set_var("DOCBUNKER_NATIVE_BROKER_BIN", &path);

@@ -281,7 +281,16 @@ mod tests {
     use super::*;
 
     fn bundle_dir(prefix: &str) -> tempfile::TempDir {
-        tempfile::Builder::new().prefix(prefix).tempdir().unwrap()
+        let dir = tempfile::Builder::new().prefix(prefix).tempdir().unwrap();
+        // OciBundle::write refuses directories looser than 0700; do not depend
+        // on tempfile's platform-specific default permissions.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700))
+                .expect("set bundle dir mode");
+        }
+        dir
     }
 
     fn sample_config() -> SandboxConfig {

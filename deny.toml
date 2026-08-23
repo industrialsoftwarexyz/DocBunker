@@ -6,6 +6,9 @@ ignore = []
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# Workspace members reference each other by path (no version requirement),
+# which the wildcard check would otherwise count as a wildcard dependency.
+allow-wildcard-paths = true
 
 [licenses]
 allow = [
