@@ -126,14 +126,25 @@ impl ProcessTransport {
         // stderr is discarded, never inherited: the untrusted worker (and
         // runsc) could otherwise inject terminal escape sequences into the
         // host console. Errors surface through the protocol instead.
+        //
+        // TMP/TEMP(/TMPDIR) are re-injected afterwards: the shared-memory
+        // region name is resolved against std::env::temp_dir() on BOTH sides,
+        // and with a cleared environment Windows would hand the child a
+        // different directory than the host uses.
+        let temp_dir = std::env::temp_dir();
+        command.env_clear();
+        // Re-injected after the clear; see the comment above.
+        command.env("TMP", &temp_dir).env("TEMP", &temp_dir);
+        #[cfg(unix)]
+        command.env("TMPDIR", &temp_dir);
         let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
-            .env_clear()
             .spawn()
             .map_err(|e| {
                 tracing::error!("cannot spawn worker command: {e}");
+                eprintln!("cannot spawn worker command: {e}");
                 SandboxError::BackendUnsupported("renderer worker binary unavailable")
             })?;
 

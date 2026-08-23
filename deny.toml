@@ -20,7 +20,6 @@ allow = [
     "MPL-2.0",
 ]
 confidence-threshold = 0.8
-copyleft = "deny"
 
 # The `pdf-mupdf` cargo feature (OFF by default) links MuPDF into the worker
 # binary, making that binary AGPL-3.0. DocBunker itself is MIT; the default

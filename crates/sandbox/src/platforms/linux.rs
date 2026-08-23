@@ -666,7 +666,8 @@ fn runsc_escape_test() {
     let state_dir = workspace.path().join("runsc-state");
     std::fs::create_dir_all(&state_dir).expect("runsc state dir");
     let container_id = format!("docbunker-escape-{}", std::process::id());
-    let guard = RunscCleanupGuard {
+    // Never read directly: the `Drop` impl performs the cleanup.
+    let _guard = RunscCleanupGuard {
         runsc_bin: runsc_bin.clone(),
         state_dir: state_dir.clone(),
         container_id: container_id.clone(),

@@ -14,6 +14,7 @@ use docbunker_native_broker::{EXTENSION_ORIGIN, HOST_NAME};
 ///
 /// Release packaging must ship `docbunker-native-broker` next to the app;
 /// `DOCBUNKER_NATIVE_BROKER_BIN` overrides it for developers.
+#[cfg(any(target_os = "windows", test))]
 pub fn broker_binary() -> Option<PathBuf> {
     if let Some(path) = std::env::var_os("DOCBUNKER_NATIVE_BROKER_BIN") {
         return Some(PathBuf::from(path));
@@ -30,6 +31,7 @@ pub fn broker_binary() -> Option<PathBuf> {
 
 /// The broker must exist before we point the browser at it; otherwise Chrome
 /// would either fail loudly (misconfiguration) or, worse, invoke nothing.
+#[cfg(any(target_os = "windows", test))]
 fn broker_binary_or_error() -> Result<PathBuf, String> {
     broker_binary()
         .filter(|path| path.is_file())
