@@ -1,0 +1,68 @@
+name: Bug report
+description: Something in DocBunker does not work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Please check existing issues
+        first to avoid duplicates. For security vulnerabilities use the private
+        process in [SECURITY.md](https://github.com/industrialsoftwarexyz/DocBunker/blob/main/SECURITY.md),
+        not this form.
+
+        If a specific document triggers the bug, do **not** attach it publicly —
+        describe its structure (format, features, size) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Also tell us what you expected to happen instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See error
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Windows x64
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Linux x64
+        - Linux aarch64
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Sandbox backend (`DOCBUNKER_BACKEND`)
+      description: If you are not sure, leave the default selected.
+      options:
+        - vm (default in release builds)
+        - runsc
+        - subprocess (development only)
+        - mock (development only)
+        - other / not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: DocBunker version or commit
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      render: shell
