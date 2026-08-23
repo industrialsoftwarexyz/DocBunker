@@ -4,131 +4,100 @@
 
 # DocBunker
 
-**Open untrusted documents without letting them touch your machine.**
+**Open sketchy documents without betting your computer on it.**
 
 [![CI](https://github.com/industrialsoftwarexyz/DocBunker/actions/workflows/ci.yml/badge.svg)](https://github.com/industrialsoftwarexyz/DocBunker/actions/workflows/ci.yml)
-[![Docs](https://github.com/industrialsoftwarexyz/DocBunker/actions/workflows/docs.yml/badge.svg)](https://github.com/industrialsoftwarexyz/DocBunker/actions/workflows/docs.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](rust-toolchain.toml)
 [![Release](https://img.shields.io/github/v/release/industrialsoftwarexyz/DocBunker)](https://github.com/industrialsoftwarexyz/DocBunker/releases)
 
-[Download](#download) · [How it works](#how-it-works) · [Build from source](#build-from-source) · [Documentation](https://industrialsoftwarexyz.github.io/DocBunker/)
+[Download](#download) · [How it works](https://industrialsoftwarexyz.github.io/DocBunker/) · [Build from source](#build-from-source)
 
 </div>
 
 ---
 
-A PDF arrives from an unknown sender. A `.docx` from a form nobody filled in.
-Today your PDF viewer, with its hundreds of thousands of lines of parsing code,
-opens it directly on your machine.
+That PDF from an unknown sender. The invoice you never expected. The `.docx`
+attached to a job offer.
 
-DocBunker flips that around: the document is parsed inside a **disposable
-sandbox**, and the only thing that ever reaches your screen is a validated
-raster image. The host never runs a document parser at all.
+Your usual viewer opens these files directly on your machine and trusts its
+parser not to be exploited that day. DocBunker makes no such bet. It copies
+the file into a throwaway sandbox, renders it there, and shows you the result.
+The file never touches your real system, and when you close it, the sandbox is
+destroyed.
 
 ```
-┌──────────────────────────── Your machine ────────────────────────────┐
-│                                                                      │
-│   Tauri UI ──► Rust core ──► Sandbox manager                         │
-│   (pixels only)  sessions      spawns / kills / timeouts              │
-│                                   │                                  │
-│ ═══════════════════ ISOLATION BOUNDARY ═══════════════════════════    │
-│                                   ▼                                  │
-│   Disposable sandbox (fresh per document, destroyed on close)        │
-│   Linux: gVisor (runsc) · Windows/macOS: QEMU VM with gVisor inside  │
-│                                                                      │
-│   renderer-worker: parses the bytes, returns RGBA pixels —           │
-│   no network, read-only rootfs, no capabilities, hard timeouts       │
-└──────────────────────────────────────────────────────────────────────┘
+ your machine                          disposable sandbox
+┌──────────────────┐                 ┌─────────────────────────┐
+│ DocBunker window │    document     │ parser runs HERE        │
+│                  │ ──────────────► │                         │
+│  sees pixels ◄── │    pixels       │ no network              │
+│                  │ ◄────────────── │ no access to your files │
+└──────────────────┘                 │ destroyed on close      │
+                                     └─────────────────────────┘
 ```
 
-## Why it is safe by construction
+Under the hood this is gVisor (`runsc`) on Linux, and QEMU with gVisor inside
+on Windows and macOS. Even a full exploit of the parser still has to get
+through two isolation boundaries — and there is nothing in the sandbox worth
+taking.
 
-- **The host has no parser to exploit.** Document formats are decoded inside the
-  sandbox; a compromised renderer can only talk back through a small, strictly
-  validated binary protocol that carries pixels and a few numbers — nothing else.
-- **Every document gets its own sandbox**, torn down completely on close. No
-  state survives between documents.
-- **The OCI profile drops everything**: no network namespace, no capabilities,
-  read-only rootfs, empty environment, cgroup memory/CPU/PID limits, and a
-  wall-clock timeout on every operation. An adversarial escape test attacks this
-  profile in CI.
-- **Raster-only boundary** ([ADR-002](docs/adr/ADR-002-raster-only-document-boundary.md)):
-  no HTML, JavaScript, SVG or raw text can cross back to the UI.
+## What can I open?
 
-The full analysis of what can still go wrong lives in the
-[threat model](docs/threat-model.md) — DocBunker makes no "100% secure" claim.
-
-## Supported formats
-
-| Format | Rendering |
+| File | What you get |
 | --- | --- |
-| PDF | Hayro (pure Rust); optional AGPL MuPDF behind a feature flag |
-| PNG, JPEG, WebP | Full image decoding with decompression-bomb caps |
-| DOCX, PPTX, XLSX | Extracted text plus embedded media on one preview page |
+| PDF | Rendered pages |
+| PNG, JPEG, WebP | Rendered image |
+| DOCX, PPTX, XLSX | Text preview of the contents |
 
-GIF/TIFF/BMP images and EPUB/RTF/HTML previews are implemented and tested but
-not wired into the worker dispatch yet ([ADR-010](docs/adr/ADR-010-gif-tiff-bmp-epub-rtf-html.md)).
+No copy-paste or search yet — the viewer deliberately works with pixels only,
+so documents cannot smuggle scripts, links or text tricks into your machine.
 
 ## Download
 
-Grab the latest build from
+Get the latest build from
 [**GitHub Releases**](https://github.com/industrialsoftwarexyz/DocBunker/releases/latest).
 
-| Platform | Package | Requirements |
+| Platform | Works on | Extra step needed |
 | --- | --- | --- |
-| Windows 10/11 (x64) | package from Releases | [WHPX](https://learn.microsoft.com/en-us/virtualization/hyper-v-on-windows/quick-start/enable-hyper-v) enabled; QEMU installed separately |
-| macOS | package from Releases | Hypervisor.framework (built-in); QEMU installed separately |
-| Linux (x64, aarch64) | package from Releases | KVM available; QEMU installed separately |
+| Windows 10/11 x64 | WHPX (built into Windows) | install [QEMU](https://qemu.org) separately |
+| macOS (Intel & Apple Silicon) | Hypervisor.framework | install QEMU (`brew install qemu`) |
+| Linux x64 / aarch64 | KVM | install QEMU from your repos |
 
-> QEMU is not bundled with the installers yet — its license review is still open
-> (see `sandbox/vm/README.md`). Install `qemu` with your package manager or the
-> official Windows builds and set `DOCBUNKER_QEMU_BIN` if it is not on `PATH`.
->
-> Project status: **0.1.0, early development.** Treat it as a working prototype:
-> the design docs describe what is actually implemented, and the release notes
-> list the known limitations.
+QEMU is not bundled yet (license review pending). Everything else ships with
+the app. This is version **0.1.0** — early days, expect rough edges.
 
 ## Build from source
 
-Prerequisites: Rust 1.85+ (pinned via `rust-toolchain.toml`), Node.js 20+ and the
-[Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your platform.
+You need Rust 1.85+, Node.js 20+ and the
+[Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 ```bash
-npm --prefix frontend ci
-npm --prefix frontend run build
-
-cargo check --workspace --all-targets
+npm --prefix frontend ci && npm --prefix frontend run build
 cargo test --workspace
-```
 
-Run it:
-
-```bash
 npm --prefix frontend run dev                    # terminal 1
 cargo run --manifest-path src-tauri/Cargo.toml   # terminal 2
 ```
 
-Debug builds use an in-process mock backend by default so you can develop
-without QEMU or gVisor. `DOCBUNKER_BACKEND` selects `mock`, `subprocess`,
-`runsc` or `vm`; release builds refuse the two unisolated ones. Details in
-[docs/sandbox.md](docs/sandbox.md).
+In debug builds the app uses a fake backend, so you can hack on it without
+QEMU or gVisor. Set `DOCBUNKER_BACKEND` to pick `mock`, `subprocess`, `runsc`
+or `vm`. Details in [docs/sandbox.md](docs/sandbox.md).
 
 ## Documentation
 
 | Document | Contents |
 | --- | --- |
-| [How it works](docs/overview.md) | The life of a document, step by step |
-| [Architecture](docs/architecture.md) | Layers, trust boundaries, crate map |
-| [Sandbox](docs/sandbox.md) | Backends, OCI hardening profile, escape tests |
-| [Protocol](docs/protocol.md) | Wire format, limits, error codes |
-| [Threat model](docs/threat-model.md) | 23 documented threats and their mitigations |
-| [ADRs](docs/adr/index.md) | Why every major decision was made |
+| [How it works](https://industrialsoftwarexyz.github.io/DocBunker/overview/) | The life of a document, step by step |
+| [Architecture](https://industrialsoftwarexyz.github.io/DocBunker/architecture/) | Layers, trust boundaries, crate map |
+| [Sandbox](https://industrialsoftwarexyz.github.io/DocBunker/sandbox/) | Backends, hardening profile, escape tests |
+| [Protocol](https://industrialsoftwarexyz.github.io/DocBunker/protocol/) | Wire format, limits, error codes |
+| [Threat model](https://industrialsoftwarexyz.github.io/DocBunker/threat-model/) | What we protect against — and what we don't |
+| [ADRs](https://industrialsoftwarexyz.github.io/DocBunker/adr/) | Why every major decision was made |
 
-Contributing? Start with [CONTRIBUTING.md](CONTRIBUTING.md). Security issues go
-through [SECURITY.md](SECURITY.md), never public issues.
+Contributing? Read [CONTRIBUTING.md](CONTRIBUTING.md). Found a security issue?
+[SECURITY.md](SECURITY.md) — please don't open a public issue.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). The optional `pdf-mupdf` feature links AGPL code
-and is excluded from default builds ([ADR-005](docs/adr/ADR-005-mupdf-as-initial-pdf-renderer.md)).
+MIT ([LICENSE](LICENSE)). The optional MuPDF feature links AGPL code and stays
+out of default builds.

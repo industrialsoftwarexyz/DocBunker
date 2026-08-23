@@ -2,10 +2,13 @@
 
 <img src="assets/docbunker-logo.svg" alt="DocBunker logo" class="landing-logo">
 
-A desktop viewer for documents you do not trust. PDFs, images and Office files
-are parsed only inside a disposable sandbox — gVisor (`runsc`) directly on
-Linux, a Linux VM (QEMU + gVisor) on Windows and macOS — and the only thing
-that ever reaches your screen is a validated raster image.
+A PDF from a stranger. An invoice you never expected. A `.docx` attached to
+a job offer.
+
+Your usual viewer opens these files on your machine and hopes its parser holds
+up. DocBunker doesn't hope: it copies the file into a throwaway sandbox,
+renders it there, and shows you the pixels. Close the document and the sandbox
+is destroyed.
 
 <div class="landing-cta" markdown="1">
 <a href="https://github.com/industrialsoftwarexyz/DocBunker/releases/latest" class="btn btn-primary">Download</a>
@@ -14,81 +17,65 @@ that ever reaches your screen is a validated raster image.
 
 ## Download
 
-Current release: **0.1.0** (early development). Pick the asset for your
-platform from
-[GitHub Releases](https://github.com/industrialsoftwarexyz/DocBunker/releases/latest).
+Current release: **0.1.0** — early days, expect rough edges.
+[GitHub Releases](https://github.com/industrialsoftwarexyz/DocBunker/releases/latest)
+has the builds.
 
 <div class="hero-grid dl-grid" markdown="1">
 
 <div class="hero-card" markdown="1">
 ### Windows
-Package for Windows 10/11 x64, isolated through QEMU with WHPX.
-
-Enable *Windows Hypervisor Platform* in "Turn Windows features on or off",
-and install QEMU separately (not bundled yet). Set `DOCBUNKER_QEMU_BIN` if
-QEMU is not on your `PATH`.
+Windows 10/11 x64. Enable *Windows Hypervisor Platform*, install
+[QEMU](https://qemu.org) separately.
 </div>
 
 <div class="hero-card" markdown="1">
 ### macOS
-Package for Intel and Apple Silicon Macs, isolated through QEMU with
-Hypervisor.framework.
-
-Nothing to enable; install QEMU (for example with Homebrew:
-`brew install qemu`).
+Intel and Apple Silicon. Just install QEMU (`brew install qemu`).
 </div>
 
 <div class="hero-card" markdown="1">
 ### Linux
-Package for x86_64 and aarch64, isolated through QEMU with KVM
-(gVisor via `runsc` is also available without a VM).
-
-Install QEMU from your distribution's repositories and make sure `/dev/kvm`
+x86_64 and aarch64. Install QEMU from your repos and make sure `/dev/kvm`
 is accessible.
 </div>
 
 </div>
 
-!!! note "Why QEMU is a manual step"
-    QEMU is not redistributed inside the installers yet; its license and
-    dependency review is still open (see `sandbox/vm/README.md`). Everything
-    else the sandbox needs ships with the app.
+!!! note "Why is QEMU a manual step?"
+    Its license review for bundling is still open. Everything else the sandbox
+    needs ships with the app.
 
 ## What happens when you open a file
 
-1. You pick a file (or hand one over from the Gmail extension).
-2. The sandbox manager boots a fresh sandbox: no network, read-only rootfs,
-   no capabilities, empty environment, memory/CPU/PID limits.
-3. The document bytes cross into the sandbox over a size-capped binary IPC
-   channel — they are never written to disk there.
-4. An untrusted worker parses the bytes and returns RGBA pixels only.
-5. Every response is re-validated on the host before a single pixel is drawn.
-6. On close (or on any timeout, crash or protocol violation) the sandbox is
-   killed, deleted and its bundle destroyed.
+1. The app boots a fresh sandbox: no network, no access to your files, hard
+   memory/CPU limits.
+2. Your document's bytes go in through a size-capped channel — never written
+   to disk there.
+3. An untrusted worker renders it and sends pixels back.
+4. Every response is re-checked before a single pixel reaches your screen.
+5. On close (or any timeout or crash) the sandbox is killed and deleted.
 
-A compromised renderer therefore has exactly one way to talk to your machine:
-a small, strictly validated protocol that cannot express HTML, paths, URLs or
-executable content. The [threat model](threat-model.md) documents what remains
-risky anyway — DocBunker makes no "100% secure" claim.
+Even if an attacker fully compromises the parser, they land in a box with
+nothing to steal and one tiny protocol to talk through. What could still go
+wrong is documented honestly in the [threat model](threat-model.md) — we don't
+claim to be 100% secure.
 
 ## Questions people ask first
 
-**Why not just open the file in the browser or Office viewer I already have?**
-Those viewers are convenient, but their parsers run with full access to your
-machine and your session. A single engine bug becomes code execution on your
-computer. DocBunker assumes the parser *will* be exploited: even then, the
-attacker lands in a disposable VM with no network, no files and one tiny
-protocol to talk through.
+**Why not just use my browser or Office viewer?**
+They're convenient, but their parsers run with full access to your machine and
+session. One engine bug away from code execution on your computer. DocBunker
+assumes that bug will be found.
 
-**What does DocBunker not protect against?**
-The honest list is in the [threat model](threat-model.md): an already-compromised
-host is out of scope; a WebView vulnerability remains the largest trusted
-surface (A23); a compromised renderer can draw wrong pixels (the preview has no
-integrity guarantee); and a hypervisor escape would defeat the VM boundary.
+**Can I copy text or search?**
+Not yet. The sandbox returns pixels only, so documents can't smuggle scripts
+or link tricks to your machine. Validated text extraction may come later,
+behind its own design review.
 
-**Can I copy text or search inside documents?**
-Not yet. The sandbox returns pixels only (ADR-002), so there is nothing to
-select or search. Features like validated text extraction need a new ADR first.
+**Does it protect against everything?**
+No. A compromised host, a WebView bug, or a hypervisor escape are outside what
+any tool can fully promise. The [threat model](threat-model.md) lists them all.
 
 ## Where to start
 
