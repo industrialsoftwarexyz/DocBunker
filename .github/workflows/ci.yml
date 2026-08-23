@@ -160,11 +160,11 @@ jobs:
           AR_X86_64_UNKNOWN_LINUX_MUSL: ar
       - name: Run runsc end-to-end test (as root)
         run: |
-          sudo env "PATH=$PATH" DOCBUNKER_RUNSC_BIN=runsc DOCBUNKER_ROOTFS="$PWD/sandbox/rootfs" \
+          sudo env "PATH=$PATH" DOCBUNKER_RUNSC_BIN=/usr/local/bin/runsc DOCBUNKER_ROOTFS="$PWD/sandbox/rootfs" \
             cargo test -p docbunker-sandbox runsc_end_to_end -- --ignored --nocapture
       - name: Run runsc escape test (as root)
         run: |
-          sudo env "PATH=$PATH" DOCBUNKER_RUNSC_BIN=runsc DOCBUNKER_ROOTFS="$PWD/sandbox/rootfs" \
+          sudo env "PATH=$PATH" DOCBUNKER_RUNSC_BIN=/usr/local/bin/runsc DOCBUNKER_ROOTFS="$PWD/sandbox/rootfs" \
             DOCBUNKER_ESCAPE_WORKER="$PWD/target/x86_64-unknown-linux-musl/release/escape-worker" \
             cargo test -p docbunker-sandbox runsc_escape_test -- --ignored --nocapture
 
@@ -183,15 +183,16 @@ jobs:
         uses: taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780 # v2
         with:
           tool: cargo-fuzz
+      # ASAN is incompatible with the musl default; force the GNU target.
       - name: Run protocol fuzz targets
         working-directory: crates/protocol/fuzz
         run: |
-          cargo +nightly fuzz run framing_decode -- -max_total_time=30
-          cargo +nightly fuzz run message_validation -- -max_total_time=30
+          cargo +nightly fuzz run --target x86_64-unknown-linux-gnu framing_decode -- -max_total_time=30
+          cargo +nightly fuzz run --target x86_64-unknown-linux-gnu message_validation -- -max_total_time=30
       - name: Run renderer-api fuzz targets
         working-directory: crates/renderer-api/fuzz
         run: |
-          cargo +nightly fuzz run format_detect -- -max_total_time=30
+          cargo +nightly fuzz run --target x86_64-unknown-linux-gnu format_detect -- -max_total_time=30
 
   audit:
     name: audit

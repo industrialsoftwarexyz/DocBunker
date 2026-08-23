@@ -20,6 +20,11 @@ allow = [
     "MPL-2.0",
 ]
 confidence-threshold = 0.8
+# MuPDF is only reachable behind the opt-in pdf-mupdf feature, so its AGPL
+# exception and some permissive licenses may not appear in a default-graph
+# scan; do not fail on entries that were not encountered.
+unused-allowed-license = "allow"
+unused-license-exception = "allow"
 
 # The `pdf-mupdf` cargo feature (OFF by default) links MuPDF into the worker
 # binary, making that binary AGPL-3.0. DocBunker itself is MIT; the default

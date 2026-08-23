@@ -6,6 +6,7 @@
 //! broker) and the registry keys — and verifies the broker is actually
 //! deployed next to it so we never register a dangling host.
 
+#[cfg(any(target_os = "windows", test))]
 use std::path::PathBuf;
 
 use docbunker_native_broker::{EXTENSION_ORIGIN, HOST_NAME};
