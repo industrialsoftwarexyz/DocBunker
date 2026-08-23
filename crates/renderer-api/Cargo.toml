@@ -1,0 +1,17 @@
+[package]
+name = "docbunker-renderer-api"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Shared renderer domain types and the DocumentRenderer trait"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+# Only used for the bounded entry-name scan that tells OOXML and EPUB apart
+# during content-based detection (never decodes entries).
+zip = { version = "2", default-features = false, features = ["deflate"] }

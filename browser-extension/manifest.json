@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "DocBunker for Gmail",
+  "version": "0.1.0",
+  "description": "Open a Gmail attachment in the isolated DocBunker viewer.",
+  "icons": {
+    "128": "icon-128.png"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAr8P/3kl61quqrTshO3nCQlpdk50p8aogcmhoo5Y3WtEmtPpr5ctWallpOfazKcHWIRO4kPSpKGDcPEJGgDMdHS0wFl/L+DvX9UiQol5lcZrCMaFvR4IGycBnjPZSJWd7kS57VGqUsKqovJ5CuYK4nq8u7YFYHjMXcEQm4h/NeaVjnSKFgfVT700GKzTxQXcFn3HOJks7AV8sEH0g/LXddS1kNAMxLsf0iNvP+Xz8vkJkzt6Ab4CRJDEv6vlAVQ26mmk1nyajTOo7uVHvf20IlC8543myFTjj13tGIwQHssZRBHC5bWf2luDp+02dt0YOe9FIAECQw9Dw3lEjw9s/LQIDAQAB",
+  "permissions": ["contextMenus", "downloads", "nativeMessaging", "notifications", "storage"],
+  "host_permissions": ["https://mail.google.com/*"],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["gmail.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+# Rust
+target/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Tauri generated code
+src-tauri/gen/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Sandbox artifacts (never commit a generated rootfs)
+sandbox/rootfs/*/
+sandbox/tmp/
+sandbox/vm/kernel
+sandbox/vm/initramfs.cpio.gz
+
+# Windows icon cache accidentally written into the repo
+%SystemDrive%/
+cversions.2.db
+
+# MkDocs build output
+site/

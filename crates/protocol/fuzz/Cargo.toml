@@ -1,0 +1,29 @@
+[package]
+name = "docbunker-protocol-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+docbunker-protocol = { path = "../.." }
+
+# Prevent the fuzz crate from accidentally being pulled into the workspace build.
+[workspace]
+
+[[bin]]
+name = "framing_decode"
+path = "fuzz_targets/framing_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "message_validation"
+path = "fuzz_targets/message_validation.rs"
+test = false
+doc = false
+bench = false

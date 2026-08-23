@@ -1,0 +1,42 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/protocol",
+    "crates/renderer-api",
+    "crates/renderer-image",
+    "crates/renderer-ooxml",
+    "crates/sandbox",
+    "crates/core",
+    "crates/renderer-worker",
+    "crates/native-broker",
+    "src-tauri",
+    "tests",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+authors = ["DocBunker contributors"]
+description = "DocBunker: sandboxed, cross-platform viewer for untrusted documents"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[workspace.dependencies]
+serde = { version = "1", default-features = false, features = ["std", "derive"] }
+postcard = { version = "1", default-features = false, features = ["alloc"] }
+thiserror = { version = "2" }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "std"] }
+sha2 = "0.10"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"

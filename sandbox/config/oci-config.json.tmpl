@@ -1,0 +1,91 @@
+{
+  "ociVersion": "1.0.2",
+  "process": {
+    "terminal": false,
+    "user": { "uid": 65534, "gid": 65534 },
+    "args": ["/bin/renderer-worker"],
+    "env": [
+      "PATH=/bin"
+    ],
+    "cwd": "/tmp",
+    "capabilities": {
+      "bounding": [],
+      "effective": [],
+      "permitted": [],
+      "ambient": []
+    },
+    "rlimits": [
+      { "type": "RLIMIT_NOFILE", "hard": 64, "soft": 64 },
+      { "type": "RLIMIT_CORE", "hard": 0, "soft": 0 }
+    ],
+    "noNewPrivileges": true
+  },
+  "root": {
+    "path": "rootfs",
+    "readonly": true
+  },
+  "hostname": "docbunker",
+  "mounts": [
+    {
+      "destination": "/proc",
+      "type": "proc",
+      "source": "proc",
+      "options": []
+    },
+    {
+      "destination": "/dev",
+      "type": "tmpfs",
+      "source": "tmpfs",
+      "options": ["nosuid", "strictatime", "mode=755", "size=65536k"]
+    },
+    {
+      "destination": "/dev/pts",
+      "type": "devpts",
+      "source": "devpts",
+      "options": ["nosuid", "noexec", "newinstance", "ptmxmode=0666", "mode=0620"]
+    },
+    {
+      "destination": "/dev/shm",
+      "type": "tmpfs",
+      "source": "shm",
+      "options": ["nosuid", "noexec", "nodev", "mode=1777", "size=65536k"]
+    },
+    {
+      "destination": "/tmp",
+      "type": "tmpfs",
+      "source": "tmpfs",
+      "options": ["nosuid", "noexec", "nodev", "size=262144k", "mode=0700"]
+    }
+  ],
+  "linux": {
+    "resources": {
+      "memory": { "limit": 536870912, "swap": 0 },
+      "cpu": { "quota": 100000, "period": 100000 },
+      "pids": { "limit": 64 }
+    },
+    "namespaces": [
+      { "type": "pid" },
+      { "type": "network" },
+      { "type": "ipc" },
+      { "type": "uts" },
+      { "type": "mount" }
+    ],
+    "maskedPaths": [
+      "/proc/kcore",
+      "/proc/latency_stats",
+      "/proc/timer_list",
+      "/proc/timer_stats",
+      "/proc/sched_debug",
+      "/proc/scsi",
+      "/sys/firmware"
+    ],
+    "readonlyPaths": [
+      "/proc/asound",
+      "/proc/bus",
+      "/proc/fs",
+      "/proc/irq",
+      "/proc/sys",
+      "/proc/sysrq-trigger"
+    ]
+  }
+}

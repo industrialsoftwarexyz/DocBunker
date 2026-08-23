@@ -1,0 +1,17 @@
+[package]
+name = "docbunker-protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Versioned binary IPC protocol shared by the DocBunker host and renderer worker"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+postcard = { workspace = true }
+thiserror = { workspace = true }
+docbunker-renderer-api = { path = "../renderer-api" }

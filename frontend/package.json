@@ -1,0 +1,27 @@
+{
+  "name": "docbunker-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "vue": "^3.5.41"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@tauri-apps/cli": "^2.0.0",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "eslint": "^9.0.0",
+    "eslint-plugin-vue": "^10.10.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.0.0",
+    "vite": "^6.0.0",
+    "vue-tsc": "^3.3.10"
+  }
+}

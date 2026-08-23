@@ -1,0 +1,39 @@
+[package]
+name = "docbunker-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "DocBunker desktop application (trusted shell)"
+publish = false
+
+[features]
+default = []
+# Allows explicitly selected unisolated backends in non-debug developer builds.
+# Distribution builds must not enable this feature.
+development-backends = []
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[lints]
+workspace = true
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+serde = { workspace = true, features = ["derive"] }
+docbunker-core = { path = "../crates/core" }
+docbunker-renderer-api = { path = "../crates/renderer-api" }
+docbunker-sandbox = { path = "../crates/sandbox" }
+docbunker-native-broker = { path = "../crates/native-broker" }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+rfd = "0.15"
+base64 = "0.22"
+serde_json = "1"
+tempfile = "3"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"

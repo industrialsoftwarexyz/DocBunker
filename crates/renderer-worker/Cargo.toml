@@ -1,0 +1,43 @@
+[package]
+name = "docbunker-renderer-worker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Untrusted renderer worker: protocol loop and renderer dispatch"
+
+[lib]
+name = "docbunker_renderer_worker"
+path = "src/lib.rs"
+
+[[bin]]
+name = "renderer-worker"
+path = "src/main.rs"
+
+[features]
+default = []
+# Optional PDF support via MuPDF. Hayro remains the permissive default:
+#  - requires a full C toolchain (libclang for bindgen + make + cc) to build
+#    mupdf-sys;
+#  - links AGPL-3.0 code into the binary when enabled (see ADR-005).
+pdf-mupdf = ["dep:mupdf"]
+
+[lints]
+workspace = true
+
+[dependencies]
+docbunker-protocol = { path = "../protocol" }
+docbunker-renderer-api = { path = "../renderer-api" }
+docbunker-renderer-image = { path = "../renderer-image" }
+docbunker-renderer-ooxml = { path = "../renderer-ooxml" }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+hayro = { version = "0.4", default-features = true }
+mupdf = { version = "0.7", default-features = false, optional = true }
+
+[dev-dependencies]
+# Only used to generate image fixtures in the subprocess tests.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+# Only used to generate OOXML fixtures in the subprocess tests.
+zip = { version = "2", default-features = false, features = ["deflate"] }

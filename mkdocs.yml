@@ -1,0 +1,53 @@
+site_name: DocBunker
+site_description: Sandboxed, cross-platform viewer for untrusted documents
+theme:
+  name: material
+  icon:
+    logo: material/shield-lock-outline
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - toc.integrate
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+plugins:
+  - search
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+extra_javascript:
+  - javascripts/mermaid.mjs
+nav:
+  - Home: README.md
+  - How it works: overview.md
+  - Architecture: architecture.md
+  - Sandbox: sandbox.md
+  - Protocol: protocol.md
+  - Threat model: threat-model.md
+  - Roadmap: roadmap.md
+  - ADRs: adr/index.md

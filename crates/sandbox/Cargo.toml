@@ -1,0 +1,41 @@
+[package]
+name = "docbunker-sandbox"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "DocBunker sandbox manager: backends, sessions, transports and platform stubs"
+
+[lints]
+workspace = true
+
+[dependencies]
+docbunker-protocol = { path = "../protocol" }
+docbunker-renderer-api = { path = "../renderer-api" }
+docbunker-renderer-worker = { path = "../renderer-worker" }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+serde_json = "1"
+tempfile = "3"
+sha2 = { workspace = true }
+libc = "0.2"
+
+[dev-dependencies]
+# Only used to generate image fixtures in tests.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+# Only used to generate OOXML fixtures in tests.
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[[bin]]
+name = "vm-image-builder"
+path = "src/bin/vm-image-builder.rs"
+
+[[bin]]
+name = "pack-initramfs"
+path = "src/bin/pack-initramfs.rs"
+
+# Test-only adversary used by `runsc_escape_test`; never part of any sandbox image.
+[[bin]]
+name = "escape-worker"
+path = "src/bin/escape-worker.rs"

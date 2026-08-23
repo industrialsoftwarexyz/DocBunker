@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Bunker tile -->
+  <rect x="28" y="28" width="968" height="968" rx="220" fill="#182433" />
+  <!-- Bunker shutter slats (behind the document) -->
+  <rect x="28" y="176" width="968" height="72" rx="24" fill="#223041" />
+  <rect x="28" y="428" width="968" height="72" rx="24" fill="#223041" />
+  <rect x="28" y="680" width="968" height="72" rx="24" fill="#223041" />
+  <!-- Document -->
+  <path
+    d="M282 232 h360 c40 0 72 32 72 72 v328 c0 40 -32 72 -72 72 H282 c-40 0 -72 -32 -72 -72 V304 c0 -40 32 -72 72 -72 z"
+    fill="#f4f7fb"
+  />
+  <!-- Folded corner -->
+  <path d="M642 232 v112 h-112 z" fill="#d6e0ea" />
+  <!-- Text lines -->
+  <rect x="310" y="430" width="300" height="34" rx="12" fill="#b9c6d4" />
+  <rect x="310" y="500" width="300" height="34" rx="12" fill="#b9c6d4" />
+  <rect x="310" y="570" width="210" height="34" rx="12" fill="#d6e0ea" />
+  <!-- Lock shackle -->
+  <path d="M432 472 v-42 a64 64 0 0 1 128 0 v42" fill="none" stroke="#0d6efd" stroke-width="44" stroke-linecap="round" />
+  <!-- Lock body -->
+  <rect x="396" y="466" width="232" height="184" rx="40" fill="#0d6efd" />
+  <!-- Keyhole -->
+  <circle cx="500" cy="550" r="26" fill="#cfe2ff" />
+  <rect x="488" y="558" width="24" height="40" rx="8" fill="#cfe2ff" />
+</svg>

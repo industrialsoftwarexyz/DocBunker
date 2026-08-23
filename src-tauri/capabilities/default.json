@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "Minimal permissions for the DocBunker main window: core APIs only. No filesystem, no shell, no HTTP, no arbitrary navigation.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

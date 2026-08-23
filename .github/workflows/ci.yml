@@ -1,0 +1,235 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: rust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install Linux system dependencies (Tauri)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: 1.88.0
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace
+
+      - name: Check (all targets)
+        run: cargo check --workspace --all-targets
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm run lint
+      - run: npm run build
+
+  tauri-build:
+    name: tauri build (ubuntu)
+    runs-on: ubuntu-22.04
+    needs: [rust, frontend]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install Linux system dependencies (Tauri)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: 1.88.0
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - name: Tauri build (debug, no bundle)
+        run: |
+          cd src-tauri
+          cargo build
+
+  pdf-mupdf:
+    name: pdf-mupdf feature (ubuntu)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install C toolchain for mupdf-sys
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make gcc libclang-dev
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: 1.88.0
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      # The `pdf-mupdf` feature links AGPL-3.0 MuPDF; it is NOT part of the
+      # default build (see ADR-005). This job only verifies it compiles/tests.
+      - name: Build with pdf-mupdf
+        run: cargo build -p docbunker-renderer-worker --features pdf-mupdf
+      - name: Test with pdf-mupdf
+        run: cargo test -p docbunker-renderer-worker --features pdf-mupdf
+
+  runsc-smoke:
+    name: runsc end-to-end (ubuntu)
+    runs-on: ubuntu-22.04
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install runsc
+        run: |
+          base_url=https://storage.googleapis.com/gvisor/releases/release/20260810/x86_64
+          curl -fsSLO "$base_url/gvisor.tar.bz2"
+          curl -fsSLO "$base_url/gvisor.tar.bz2.sha512"
+          sha512sum --check gvisor.tar.bz2.sha512
+          sudo tar -xjf gvisor.tar.bz2 -C /usr/local/bin
+          runsc --version
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: 1.88.0
+          targets: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      - name: Build static worker
+        run: cargo build --locked -p docbunker-renderer-worker --target x86_64-unknown-linux-musl --release
+      - name: Build rootfs
+        run: |
+          sh sandbox/scripts/build-rootfs.sh "$PWD/sandbox/rootfs" \
+            "$PWD/target/x86_64-unknown-linux-musl/release/renderer-worker"
+      - name: Build escape-test worker (static musl)
+        run: |
+          cargo build --locked -p docbunker-sandbox --bin escape-worker \
+            --target x86_64-unknown-linux-musl --release
+      - name: Run runsc end-to-end test (as root)
+        run: |
+          sudo env DOCBUNKER_RUNSC_BIN=runsc DOCBUNKER_ROOTFS="$PWD/sandbox/rootfs" \
+            cargo test -p docbunker-sandbox runsc_end_to_end -- --ignored
+      - name: Run runsc escape test (as root)
+        run: |
+          sudo env DOCBUNKER_RUNSC_BIN=runsc DOCBUNKER_ROOTFS="$PWD/sandbox/rootfs" \
+            DOCBUNKER_ESCAPE_WORKER="$PWD/target/x86_64-unknown-linux-musl/release/escape-worker" \
+            cargo test -p docbunker-sandbox runsc_escape_test -- --ignored --nocapture
+
+  fuzz:
+    name: fuzz targets (nightly)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install nightly + cargo-fuzz
+        uses: dtolnay/rust-toolchain@7c8d7d138f5c09cef361f8214cf96882cd029cdb # nightly
+      - run: cargo install cargo-fuzz --locked
+      - name: Run protocol fuzz targets
+        run: |
+          cargo +nightly fuzz run --manifest-path crates/protocol/fuzz/Cargo.toml framing_decode -- -max_total_time=30
+          cargo +nightly fuzz run --manifest-path crates/protocol/fuzz/Cargo.toml message_validation -- -max_total_time=30
+      - name: Run renderer-api fuzz targets
+        run: |
+          cargo +nightly fuzz run --manifest-path crates/renderer-api/fuzz/Cargo.toml format_detect -- -max_total_time=30
+
+  audit:
+    name: audit
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: 1.88.0
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780 # v2
+        with:
+          tool: cargo-audit
+      - name: RustSec advisory check
+        run: cargo audit
+- name: Install cargo-deny
+        uses: taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780 # v2
+        with:
+          tool: cargo-deny
+      - name: License and ban checks
+        run: cargo deny check
+
+  supply-chain:
+    name: supply chain (assets, reproducibility, SBOM)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: 1.88.0
+          targets: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+
+      - name: Verify bundled VM assets against pinned SHA256SUMS
+        run: sh sandbox/scripts/verify-assets.sh
+
+      - name: Reproducible worker build (build twice, compare hashes)
+        run: |
+          export SOURCE_DATE_EPOCH=0
+          export CARGO_BUILD_JOBS=4
+          cargo build --locked -p docbunker-renderer-worker --target x86_64-unknown-linux-musl --release
+          sha256sum target/x86_64-unknown-linux-musl/release/renderer-worker | tee /tmp/worker-1.sha256
+          rm -rf target/x86_64-unknown-linux-musl/release/renderer-worker
+          cargo build --locked -p docbunker-renderer-worker --target x86_64-unknown-linux-musl --release
+          sha256sum target/x86_64-unknown-linux-musl/release/renderer-worker | tee /tmp/worker-2.sha256
+          cmp /tmp/worker-1.sha256 /tmp/worker-2.sha256
+
+      - name: Generate CycloneDX SBOMs
+        run: |
+          cargo install cargo-cyclonedx --locked
+          mkdir -p sbom
+          cd crates/renderer-worker
+          cargo cyclonedx --format json --output ../../sbom/sbom-worker.json
+          cd ../../crates/native-broker
+          cargo cyclonedx --format json --output ../../sbom/sbom-broker.json
+          cd ../../src-tauri
+          cargo cyclonedx --format json --output ../../sbom/sbom-app.json
+          cd ../..
+          ls -la sbom
+      - uses: actions/upload-artifact@65c4c4a1ddee5b7f6983948297ad07d6d0c1c0c1 # v4
+        with:
+          name: docbunker-sbom
+          path: sbom/
+          if-no-files-found: error

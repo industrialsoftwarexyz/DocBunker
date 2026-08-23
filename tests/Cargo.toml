@@ -1,0 +1,23 @@
+[package]
+name = "docbunker-integration-tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Cross-crate integration tests for DocBunker"
+
+[lints]
+workspace = true
+
+[dependencies]
+docbunker-core = { path = "../crates/core" }
+docbunker-sandbox = { path = "../crates/sandbox" }
+docbunker-protocol = { path = "../crates/protocol" }
+docbunker-renderer-api = { path = "../crates/renderer-api" }
+docbunker-renderer-worker = { path = "../crates/renderer-worker" }
+
+# A deliberately misbehaving worker used to exercise host-side validation.
+[[bin]]
+name = "fake_worker"
+path = "src/bin/fake_worker.rs"

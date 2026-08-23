@@ -1,0 +1,23 @@
+[package]
+name = "docbunker-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "DocBunker trusted core: document orchestration, page cache, PNG encoding"
+
+[lints]
+workspace = true
+
+[dependencies]
+docbunker-protocol = { path = "../protocol" }
+docbunker-renderer-api = { path = "../renderer-api" }
+docbunker-sandbox = { path = "../sandbox" }
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+png = "0.17"
+tracing = { workspace = true }
+
+[dev-dependencies]
+serde_json = "1"

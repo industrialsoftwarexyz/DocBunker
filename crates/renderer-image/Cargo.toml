@@ -1,0 +1,26 @@
+[package]
+name = "docbunker-renderer-image"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Real PNG/JPEG/WebP decoder renderer for the DocBunker worker"
+
+[lints]
+workspace = true
+
+[dependencies]
+docbunker-renderer-api = { path = "../renderer-api" }
+png = "0.17"
+jpeg-decoder = "0.3"
+webp = "0.3"
+# GIF/TIFF/BMP decoding (ADR-010): one audited pure-Rust decoder family for
+# the additional raster formats, feature-gated to exactly those codecs.
+image = { version = "0.25", default-features = false, features = ["gif", "tiff", "bmp"] }
+tracing = { workspace = true }
+
+[dev-dependencies]
+# Used only to generate image fixtures in tests.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "tiff", "bmp"] }
+crc32fast = "1"
