@@ -184,7 +184,7 @@ jobs:
           tool: cargo-audit
       - name: RustSec advisory check
         run: cargo audit
-- name: Install cargo-deny
+      - name: Install cargo-deny
         uses: taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780 # v2
         with:
           tool: cargo-deny

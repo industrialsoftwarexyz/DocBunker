@@ -39,6 +39,17 @@ jobs:
       - name: Build
         run: mkdocs build --strict
 
+      # Advisory only: report dead external links without failing the deploy.
+      # Excluded: /releases/latest does not resolve until the first release.
+      - name: Check external links (advisory)
+        continue-on-error: true
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress --max-retries 2
+            --exclude 'releases/latest'
+            './site/**/*.html'
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
