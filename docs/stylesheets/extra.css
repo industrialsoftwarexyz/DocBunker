@@ -1,0 +1,46 @@
+/* DocBunker docs — identity overrides for Material for MkDocs */
+
+:root {
+  --md-primary-fg-color: #0d6efd;
+  --md-primary-fg-color--light: #6ea8fe;
+  --md-primary-fg-color--dark: #0a58ca;
+  --md-accent-fg-color: #6ea8fe;
+  --md-default-bg-color: #ffffff;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #6ea8fe;
+  --md-accent-fg-color: #6ea8fe;
+}
+
+/* Hero grid on the home page */
+.hero-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.hero-card {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--md-default-bg-color);
+  box-shadow: var(--md-shadow-z1, 0 0.2rem 0.5rem rgba(0, 0, 0, 0.1));
+}
+
+.hero-card h2 {
+  margin-top: 0;
+}
+
+/* Slightly friendlier admonitions */
+.md-typeset .admonition,
+.md-typeset details {
+  border-width: 0 0 0 0.25rem;
+  border-radius: 0.25rem;
+}
+
+/* Footer links */
+.md-footer__inner {
+  padding: 0.4rem 0 0.2rem;
+}

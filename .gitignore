@@ -31,3 +31,4 @@ cversions.2.db
 
 # MkDocs build output
 site/
+.cache/

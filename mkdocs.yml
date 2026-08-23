@@ -1,32 +1,55 @@
 site_name: DocBunker
-site_description: Sandboxed, cross-platform viewer for untrusted documents
+site_description: A sandboxed, cross-platform viewer for potentially malicious documents — parse untrusted files in a disposable VM + gVisor.
+site_url: https://industrialsoftwarexyz.github.io/DocBunker/
+repo_url: https://github.com/industrialsoftwarexyz/DocBunker
+repo_name: industrialsoftwarexyz/DocBunker
+edit_uri: edit/main/docs/
+
+copyright: Copyright &copy; 2026 DocBunker contributors — MIT License
+
 theme:
   name: material
   icon:
-    logo: material/shield-lock-outline
+    logo: material/shield-half-full
+    repo: fontawesome/brands/github
   features:
     - navigation.sections
     - navigation.expand
     - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - search.share
     - toc.integrate
     - content.code.copy
+    - content.code.annotate
+    - content.tooltips
+    - header.autohide
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: deep purple
-      accent: deep purple
+      primary: blue
+      accent: blue
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: deep purple
-      accent: deep purple
+      primary: blue
+      accent: blue
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  language: en
+  logo: assets/docbunker-logo.svg
+  favicon: assets/favicon.svg
+
 plugins:
-  - search
+  - search:
+
 markdown_extensions:
   - admonition
   - tables
@@ -40,14 +63,43 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - attr_list
+
 extra_javascript:
   - javascripts/mermaid.mjs
+
+extra_css:
+  - stylesheets/extra.css
+
 nav:
-  - Home: README.md
+  - Home: index.md
   - How it works: overview.md
   - Architecture: architecture.md
   - Sandbox: sandbox.md
   - Protocol: protocol.md
   - Threat model: threat-model.md
   - Roadmap: roadmap.md
-  - ADRs: adr/index.md
+  - ADRs:
+      - ADR index: adr/index.md
+      - ADR-001: adr/ADR-001-tauri-as-desktop-shell.md
+      - ADR-002: adr/ADR-002-raster-only-document-boundary.md
+      - ADR-003: adr/ADR-003-gvisor-as-linux-isolation-layer.md
+      - ADR-004: adr/ADR-004-binary-ipc-protocol.md
+      - ADR-005: adr/ADR-005-mupdf-as-initial-pdf-renderer.md
+      - ADR-006: adr/ADR-006-vm-layer-for-windows-macos.md
+      - ADR-007: adr/ADR-007-ooxml-text-preview.md
+      - ADR-008: adr/ADR-008-ooxml-embedded-images.md
+      - ADR-009: adr/ADR-009-shared-memory-transport.md
+  - Changelog: changelog.md
+  - Contributing: contributing.md
+  - Security: security.md
