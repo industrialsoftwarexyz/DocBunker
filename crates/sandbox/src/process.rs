@@ -60,7 +60,6 @@ struct ShmRegion {
 /// Positional read at `offset`, filling `buffer` exactly (host side).
 #[cfg(unix)]
 fn read_exact_at(file: &std::fs::File, buffer: &mut [u8], offset: u64) -> std::io::Result<()> {
-    use std::io::Read;
     use std::os::unix::fs::FileExt;
     let mut done = 0;
     while done < buffer.len() {

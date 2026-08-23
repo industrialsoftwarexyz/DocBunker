@@ -157,11 +157,11 @@ jobs:
           AR_X86_64_UNKNOWN_LINUX_MUSL: ar
       - name: Run runsc end-to-end test (as root)
         run: |
-          sudo env DOCBUNKER_RUNSC_BIN=runsc DOCBUNKER_ROOTFS="$PWD/sandbox/rootfs" \
+          sudo env "PATH=$PATH" DOCBUNKER_RUNSC_BIN=runsc DOCBUNKER_ROOTFS="$PWD/sandbox/rootfs" \
             cargo test -p docbunker-sandbox runsc_end_to_end -- --ignored
       - name: Run runsc escape test (as root)
         run: |
-          sudo env DOCBUNKER_RUNSC_BIN=runsc DOCBUNKER_ROOTFS="$PWD/sandbox/rootfs" \
+          sudo env "PATH=$PATH" DOCBUNKER_RUNSC_BIN=runsc DOCBUNKER_ROOTFS="$PWD/sandbox/rootfs" \
             DOCBUNKER_ESCAPE_WORKER="$PWD/target/x86_64-unknown-linux-musl/release/escape-worker" \
             cargo test -p docbunker-sandbox runsc_escape_test -- --ignored --nocapture
 
@@ -179,12 +179,14 @@ jobs:
         with:
           tool: cargo-fuzz
       - name: Run protocol fuzz targets
+        working-directory: crates/protocol/fuzz
         run: |
-          cargo +nightly fuzz run --manifest-path crates/protocol/fuzz/Cargo.toml framing_decode -- -max_total_time=30
-          cargo +nightly fuzz run --manifest-path crates/protocol/fuzz/Cargo.toml message_validation -- -max_total_time=30
+          cargo +nightly fuzz run framing_decode -- -max_total_time=30
+          cargo +nightly fuzz run message_validation -- -max_total_time=30
       - name: Run renderer-api fuzz targets
+        working-directory: crates/renderer-api/fuzz
         run: |
-          cargo +nightly fuzz run --manifest-path crates/renderer-api/fuzz/Cargo.toml format_detect -- -max_total_time=30
+          cargo +nightly fuzz run format_detect -- -max_total_time=30
 
   audit:
     name: audit
@@ -218,13 +220,25 @@ jobs:
           targets: x86_64-unknown-linux-musl
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
 
-      - name: Verify bundled VM assets against pinned SHA256SUMS
-        run: sh sandbox/scripts/verify-assets.sh
+      # The VM kernel/initramfs are release artifacts, not source-controlled
+      # files (see sandbox/vm/README.md), so there is nothing to verify on a
+      # fresh checkout. sandbox/scripts/verify-assets.sh remains the packaging
+      # gate: run it wherever the assets are actually assembled.
+      - name: Check pinned VM asset manifest is present
+        run: test -f sandbox/vm/SHA256SUMS
+
+      # libwebp-sys compiles C code; the musl target needs a musl-capable cc.
+      - name: Install musl toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
 
       - name: Reproducible worker build (build twice, compare hashes)
         run: |
           export SOURCE_DATE_EPOCH=0
           export CARGO_BUILD_JOBS=4
+          export CC_X86_64_UNKNOWN_LINUX_MUSL=musl-gcc
+          export AR_X86_64_UNKNOWN_LINUX_MUSL=ar
           cargo build --locked -p docbunker-renderer-worker --target x86_64-unknown-linux-musl --release
           sha256sum target/x86_64-unknown-linux-musl/release/renderer-worker | tee /tmp/worker-1.sha256
           rm -rf target/x86_64-unknown-linux-musl/release/renderer-worker

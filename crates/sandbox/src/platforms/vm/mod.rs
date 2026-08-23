@@ -21,6 +21,7 @@ use std::process::{Command, Stdio};
 
 /// Build a `Command` that never opens a visible console window on Windows.
 fn silent_command(program: &Path) -> Command {
+    #[allow(unused_mut)]
     let mut command = Command::new(program);
     #[cfg(target_os = "windows")]
     {

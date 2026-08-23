@@ -138,8 +138,13 @@ fn main() {
 mod tests {
     use super::*;
 
+    /// Serializes tests that mutate `DOCBUNKER_APP_BIN` (a process global —
+    /// parallel tests would race each other).
+    static APP_BIN_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn locates_app_next_to_broker() {
+        let _guard = APP_BIN_ENV_LOCK.lock().unwrap();
         let previous_bin = std::env::var_os("DOCBUNKER_APP_BIN");
         std::env::remove_var("DOCBUNKER_APP_BIN");
         let result = app_binary();
@@ -161,6 +166,7 @@ mod tests {
 
     #[test]
     fn env_override_for_app_binary() {
+        let _guard = APP_BIN_ENV_LOCK.lock().unwrap();
         let path = std::path::PathBuf::from("C:\\DocBunker\\app.exe");
         std::env::set_var("DOCBUNKER_APP_BIN", &path);
         assert_eq!(app_binary().unwrap(), path);

@@ -461,7 +461,7 @@ mod tests {
 /// Requires: `DOCBUNKER_RUNSC_BIN` (or runsc on PATH), a rootfs in
 /// `DOCBUNKER_ROOTFS` containing `bin/renderer-worker`, and privileges for
 /// runsc. Run with: `cargo test -p docbunker-sandbox runsc_end_to_end -- --ignored`
-#[cfg(target_os = "linux")]
+#[cfg(all(test, target_os = "linux"))]
 #[test]
 #[ignore = "requires runsc + a prepared rootfs on a Linux host"]
 fn runsc_end_to_end() {
@@ -544,7 +544,7 @@ fn runsc_end_to_end() {
 ///
 /// Run with:
 /// `cargo test -p docbunker-sandbox runsc_escape_test -- --ignored`
-#[cfg(target_os = "linux")]
+#[cfg(all(test, target_os = "linux"))]
 fn copy_tree(src: &Path, dst: &Path) -> io::Result<()> {
     use std::os::unix::fs::symlink;
 
@@ -566,7 +566,7 @@ fn copy_tree(src: &Path, dst: &Path) -> io::Result<()> {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(test, target_os = "linux"))]
 struct RunscCleanupGuard {
     runsc_bin: PathBuf,
     state_dir: PathBuf,
@@ -575,7 +575,7 @@ struct RunscCleanupGuard {
     armed: bool,
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(test, target_os = "linux"))]
 impl Drop for RunscCleanupGuard {
     fn drop(&mut self) {
         if self.armed {
@@ -589,7 +589,7 @@ impl Drop for RunscCleanupGuard {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(test, target_os = "linux"))]
 #[test]
 #[ignore = "requires runsc + rootfs + escape-worker on a Linux host"]
 fn runsc_escape_test() {
