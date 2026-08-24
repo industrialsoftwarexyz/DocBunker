@@ -6,7 +6,7 @@ on:
     paths:
       - "docs/**"
       - "mkdocs.yml"
-      - "requirements.txt"
+      - "docs/requirements.txt"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 
@@ -34,7 +34,7 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r docs/requirements.txt
 
       - name: Build
         run: mkdocs build --strict
