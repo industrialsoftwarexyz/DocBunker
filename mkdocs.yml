@@ -44,8 +44,8 @@ theme:
     text: Inter
     code: JetBrains Mono
   language: en
-  logo: assets/docbunker-logo.svg
-  favicon: assets/favicon.svg
+  logo: assets/docbunker-logo.png
+  favicon: assets/docbunker-logo.png
 
 plugins:
   - search:

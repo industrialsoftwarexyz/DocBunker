@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/docbunker-logo.svg" alt="DocBunker logo" width="96"/>
+<img src="docs/assets/docbunker-logo.png" alt="DocBunker logo" width="128"/>
 
 # DocBunker
 

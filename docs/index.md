@@ -1,6 +1,6 @@
 # DocBunker
 
-<img src="assets/docbunker-logo.svg" alt="DocBunker logo" class="landing-logo">
+<img src="assets/docbunker-logo.png" alt="DocBunker logo" class="landing-logo">
 
 You get a PDF from someone you don't know. Or an invoice you weren't
 expecting. Or a `.docx` attached to a sketchy job offer.

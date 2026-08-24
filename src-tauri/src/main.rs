@@ -64,6 +64,7 @@ fn main() {
         .manage(StartupFiles(std::sync::Mutex::new(
             startup_file.into_iter().collect(),
         )))
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_single_instance::init(|app, arguments, _| {
             if let Some(pending) = app_config::pending_document_from_args(
                 arguments.into_iter().map(std::ffi::OsString::from),
@@ -104,8 +105,40 @@ fn main() {
         )
         .setup(move |app| {
             if let Err(error) = native_host::register() {
-                tracing::warn!(%error, "failed to register Chrome native messaging host");
+                tracing::warn!(%error, "failed to register native messaging host");
             }
+
+            // Register docbunker:// custom protocol
+            if let Err(error) = app.deep_link().register("docbunker") {
+                tracing::warn!(%error, "failed to register docbunker:// protocol");
+            }
+
+            // Handle docbunker:// URLs (e.g. docbunker://open?path=/path/to/file.pdf)
+            let app_handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                for url in event.urls() {
+                    if url.scheme() == "docbunker" && url.host_str() == Some("open") {
+                        if let Some(path) = url.query_pairs().find_map(|(k, v)| {
+                            if k == "path" { Some(v.into_owned()) } else { None }
+                        }) {
+                            let path = std::path::PathBuf::from(&path);
+                            if path.is_file() {
+                                let state = app_handle.state::<StartupFiles>();
+                                if let Ok(mut queue) = state.0.lock() {
+                                    let pending = app_config::PendingDocument {
+                                        path,
+                                        ack_path: None,
+                                    };
+                                    if queue.len() < 4 {
+                                        queue.push_back(pending);
+                                        let _ = app_handle.emit("associated-file-ready", ());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
             let vm_dir = app.path().resolve("vm", BaseDirectory::Resource).ok();
             let config = AppConfig::from_env(vm_dir.as_deref());
             let configured_isolation = config

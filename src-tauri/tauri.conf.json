@@ -27,6 +27,16 @@
       "capabilities": ["default"]
     }
   },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["docbunker"]
+      },
+      "mobile": {
+        "schemes": ["docbunker"]
+      }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

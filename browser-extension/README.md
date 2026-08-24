@@ -46,7 +46,7 @@ Proton Mail, iCloud Mail, Zoho Mail, GMX, Web.de, Mail.com, AOL Mail.
 | `background.js` | Firefox background (identical logic) |
 | `webmail.js` | Content script — attachment detection + buttons |
 | `options.html` / `options.js` | Settings page |
-| `icon-128.png` / `icon-128.svg` | Extension icon |
+| `icon-128.png` | Extension icon |
 
 ## Permissions
 
