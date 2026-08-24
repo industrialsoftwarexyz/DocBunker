@@ -1,45 +1,88 @@
 # Browser extension
 
-DocBunker ships with a Chrome extension ("DocBunker for Gmail", `browser-extension/`)
-that adds an **Open in DocBunker** action to supported Gmail attachments and to
-matching download links. It exists so the risky click — opening an attachment
-you are not sure about — lands in the sandbox instead of your default viewer.
+DocBunker ships with a Chrome extension that adds an **Open in DocBunker**
+button next to Gmail attachments. Click it and the file opens in the sandbox
+instead of your default viewer — no need to download first and open manually.
 
-## How a transfer works
+## What you see
 
-1. You pick **Open in DocBunker** on an attachment in Gmail.
-2. Chrome performs its normal authenticated download. The extension never sees
-   or transmits attachment bytes.
-3. The extension hands the completed local path to the DocBunker native
-   messaging host (`docbunker-native-broker`), a dedicated binary with no
-   WebView and no document parsers.
-4. The broker re-validates the file: supported magic signature, size, and path
-   inside the user's Downloads directory (`DOCBUNKER_ALLOWED_OPEN_DIR`
-   overrides it). Only then does it spawn the app.
-5. The app acknowledges actual ingestion before the extension reports success;
-   the options page can delete Chrome's downloaded copy afterwards
-   (`deleteAfterOpen`, the only persistent setting).
+When you open an email with attachments in Gmail, a small button appears next
+to each one. Click it and DocBunker downloads the file, sends it to the
+sandbox, and shows you the result. If you enable the option, Chrome's copy of
+the file gets deleted once DocBunker confirms it opened.
 
-Transfer metadata lives exclusively in `chrome.storage.session` and disappears
-with the browser session. Pending transfers survive Manifest V3 service-worker
-suspension; repeated requests are deduplicated and at most three run at once.
+The extension only activates on `mail.google.com`. It doesn't work on other
+sites, and it doesn't read your email content — just watches for attachment
+links.
 
-## Trust properties
+## What happens behind the scenes
 
-- The browser can only reach `docbunker-native-broker`, and only for this one
-  hand-off flow — see the trust boundary rules in [`SECURITY.md`](https://github.com/industrialsoftwarexyz/DocBunker/blob/main/SECURITY.md).
-- The extension requests access to Gmail pages, downloads, context menus,
-  notifications and the DocBunker native host. It does not use the Gmail API,
-  cookies permission or browsing history.
-- The production build is keyed so the unpacked extension ID is
-  `lmmdckggliegiglepibblfnpaiaeojpf`, matching the native host allowlist.
+1. You click **Open in DocBunker** on an attachment.
+2. Chrome downloads the file normally — the extension never sees the file
+   bytes, just the download path.
+3. The path goes to the DocBunker native broker (`docbunker-native-broker`),
+   a small binary that validates the file: right magic bytes, right size, and
+   it must be in your Downloads folder (or a custom path you set with
+   `DOCBUNKER_ALLOWED_OPEN_DIR`).
+4. Only after validation does the broker launch DocBunker with the file.
+5. The extension waits for DocBunker to confirm it actually ingested the file
+   before reporting success.
 
-Details: [README](https://github.com/industrialsoftwarexyz/DocBunker/blob/main/browser-extension/README.md)
-and [privacy statement](https://github.com/industrialsoftwarexyz/DocBunker/blob/main/browser-extension/PRIVACY.md)
-in `browser-extension/`.
+Pending transfers survive if the service worker goes to sleep (Manifest V3
+limitation). You can open up to three files at once; extra requests wait. If
+the same attachment is requested twice, the second request reuses the first.
+
+## Options
+
+Right-click the extension icon and choose **Options**, or find it on
+`chrome://extensions`. There's one toggle:
+
+- **Delete Chrome's downloaded copy after opening** — removes the file from
+  your Downloads folder once DocBunker confirms ingestion. Off by default.
+
+## Permissions
+
+The extension requests:
+
+| Permission | Why |
+| --- | --- |
+| `contextMenus` | "Open attachment in DocBunker" right-click menu |
+| `downloads` | Trigger the download and clean up afterwards |
+| `nativeMessaging` | Talk to the DocBunker broker |
+| `notifications` | Show status when something fails |
+| `storage` | Remember your delete preference and track in-flight transfers |
+| `host_permissions` for `mail.google.com` | Only active on Gmail pages |
+
+It does **not** request: Gmail API, cookies, browsing history, or access to
+any site other than Gmail.
+
+The production build uses a fixed extension key so the unpacked ID matches
+the native host allowlist (`lmmdckggliegiglepibblfnpaiaeojpf`).
 
 ## Install for testing
 
-1. Build and run DocBunker once so it registers the per-user native host.
-2. Open `chrome://extensions`, enable Developer mode, choose **Load unpacked**.
-3. Select the repository's `browser-extension/` directory.
+1. Run DocBunker once so it registers the native host.
+2. Open `chrome://extensions`, enable Developer mode, click **Load unpacked**.
+3. Select the `browser-extension/` directory from the repo.
+
+The extension icon appears in your toolbar. Open Gmail and you'll see the
+buttons next to attachments.
+
+## Troubleshooting
+
+**No buttons appear in Gmail.**
+Make sure you're on `mail.google.com` (not a cached or offline version). Try
+reloading the tab after installing the extension.
+
+**"Could not download attachment" error.**
+Chrome might have blocked the download. Check that DocBunker has download
+permissions in `chrome://extensions` and that your downloads folder is
+accessible.
+
+**"DocBunker rejected the attachment" error.**
+The broker couldn't validate the file. It might be an unsupported type, too
+large, or outside your Downloads folder. Check the broker logs.
+
+**The download completes but nothing opens.**
+Make sure DocBunker is running. The broker needs the app registered as a
+native messaging host — run DocBunker at least once after installation.
