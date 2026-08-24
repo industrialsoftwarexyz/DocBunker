@@ -166,8 +166,10 @@ pub async fn open_document(state: State<'_, AppState>) -> Result<OpenResultDto, 
     open_file(manager, file).await
 }
 
-const SUPPORTED_EXTENSIONS: [&str; 8] =
-    ["pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx"];
+const SUPPORTED_EXTENSIONS: [&str; 14] = [
+    "pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx",
+    "gif", "tif", "tiff", "bmp", "epub", "rtf",
+];
 
 /// Open a document by its filesystem path (used by drag-and-drop).
 #[tauri::command]
