@@ -4,19 +4,44 @@
     <meta charset="utf-8" />
     <title>DocBunker options</title>
     <style>
-      body { width: 320px; padding: 18px; font: 13px "Segoe UI", sans-serif; color: #222; }
+      body { width: 380px; padding: 18px; font: 13px "Segoe UI", sans-serif; color: #222; }
       h1 { margin: 0 0 14px; font-size: 18px; font-weight: 500; color: #164a73; }
+      h2 { margin: 16px 0 8px; font-size: 13px; font-weight: 600; color: #444; text-transform: uppercase; letter-spacing: 0.5px; }
       label { display: flex; gap: 9px; align-items: flex-start; line-height: 1.45; }
-      p { color: #59636c; line-height: 1.45; }
+      p { color: #59636c; line-height: 1.45; margin: 4px 0 0; }
+      .types { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0; }
+      .types label { font-size: 12px; gap: 4px; }
+      .folder-row { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
+      .folder-row input { flex: 1; padding: 4px 8px; border: 1px solid #ccc; border-radius: 3px; font: 12px monospace; }
+      .folder-row button { padding: 4px 10px; border: 1px solid #7d9db5; border-radius: 3px; background: #f0f6fb; color: #174a70; cursor: pointer; font-size: 12px; }
+      .folder-row button:hover { background: #dbeaf5; }
+      hr { border: none; border-top: 1px solid #eee; margin: 14px 0; }
     </style>
   </head>
   <body>
     <h1>DocBunker</h1>
+
     <label>
       <input id="delete-after-open" type="checkbox" />
-      Delete the downloaded copy after DocBunker confirms that it opened successfully.
+      Delete the downloaded copy after DocBunker confirms it opened successfully.
     </label>
     <p>The document remains available inside DocBunker only for the current isolated session.</p>
+
+    <hr />
+
+    <h2>Show buttons for</h2>
+    <div class="types" id="type-toggles"></div>
+    <p>Unchecked types won't show the "Open in DocBunker" button.</p>
+
+    <hr />
+
+    <h2>Download folder</h2>
+    <div class="folder-row">
+      <input id="download-dir" type="text" placeholder="~/Downloads (default)" />
+      <button id="reset-dir">Reset</button>
+    </div>
+    <p>DocBunker only opens files from this folder. Chrome must also download here.</p>
+
     <script src="options.js"></script>
   </body>
 </html>

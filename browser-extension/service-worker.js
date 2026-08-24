@@ -10,6 +10,8 @@ const PENDING_PREFIX = "pending:";
 const ACTIVE_PREFIX = "active:";
 const MAX_PENDING = 3;
 const MAX_AGE_MS = 60 * 60 * 1000;
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = [2000, 5000];
 
 const ALLOWED_ORIGINS = [
   "https://mail.google.com",
@@ -30,7 +32,7 @@ const ALLOWED_ORIGINS = [
 
 const ALLOWED_URL_PATTERNS = ALLOWED_ORIGINS.map((o) => `${o}/*`);
 
-// --- storage helpers (session where available, local as fallback for Firefox MV2) ---
+// --- storage helpers ---
 function storageGet(keys) {
   if (api.storage.session) return api.storage.session.get(keys);
   return api.storage.local.get(keys);
@@ -90,10 +92,14 @@ async function openFocusedAttachment() {
   const [tab] = await api.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return;
   try {
-    api.tabs.sendMessage(tab.id, { type: "getFocusedAttachment" }, (response) => {
-      if (chrome.runtime.lastError || !response?.url) return;
-      void downloadAndOpen(response.url, tab.id);
-    });
+    api.tabs.sendMessage(
+      tab.id,
+      { type: "getFocusedAttachment" },
+      (response) => {
+        if (chrome.runtime.lastError || !response?.url) return;
+        void downloadAndOpen(response.url, tab.id);
+      },
+    );
   } catch {}
 }
 
@@ -142,7 +148,7 @@ async function openAllAttachments(urls, tabId) {
 }
 
 // --- core flow ---
-async function downloadAndOpen(url, tabId) {
+async function downloadAndOpen(url, tabId, retryCount = 0) {
   if (!isAllowedWebmailUrl(url))
     return { ok: false, message: "Unsupported attachment URL" };
 
@@ -174,7 +180,9 @@ async function downloadAndOpen(url, tabId) {
         requestId,
         tabId,
         urlHash,
+        url,
         filename: extractFilename(url),
+        retryCount,
         startedAt: Date.now(),
       },
       [activeKey]: requestId,
@@ -201,6 +209,19 @@ async function finishDownload(id, downloadError) {
   if (!pending) return;
 
   if (downloadError) {
+    if (pending.retryCount < MAX_RETRIES) {
+      const delay = RETRY_DELAY_MS[pending.retryCount] ?? 3000;
+      await storageRemove([
+        key,
+        `${ACTIVE_PREFIX}${pending.urlHash}`,
+      ]);
+      await updateBadge();
+      setTimeout(
+        () => void downloadAndOpen(pending.url, pending.tabId, pending.retryCount + 1),
+        delay,
+      );
+      return;
+    }
     await finishPending(
       id,
       pending,
@@ -217,12 +238,19 @@ async function finishDownload(id, downloadError) {
   }
 
   const displayName = pending.filename ?? extractFilename(download.url);
+  const { downloadDir = "" } = await api.storage.local.get("downloadDir");
   const response = await sendNativeMessage({
     action: "open_file",
     path: download.filename,
+    ...(downloadDir ? { allowedDir: downloadDir } : {}),
   });
   if (!response.ok) {
-    await finishPending(id, pending, "failed", `${displayName}: ${response.message}`);
+    await finishPending(
+      id,
+      pending,
+      "failed",
+      `${displayName}: ${response.message}`,
+    );
     return;
   }
 
@@ -233,7 +261,12 @@ async function finishDownload(id, downloadError) {
     await api.downloads.removeFile(id).catch(() => undefined);
     await api.downloads.erase({ id });
   }
-  await finishPending(id, pending, "opened", `${displayName} opened in DocBunker`);
+  await finishPending(
+    id,
+    pending,
+    "opened",
+    `${displayName} opened in DocBunker`,
+  );
 }
 
 async function finishPending(id, pending, status, message) {
@@ -269,6 +302,17 @@ async function reconcilePendingDownloads() {
     }
     const [download] = await api.downloads.search({ id });
     if (!download || download.state === "interrupted") {
+      if (pending.retryCount < MAX_RETRIES) {
+        const delay = RETRY_DELAY_MS[pending.retryCount] ?? 3000;
+        await storageRemove([key, `${ACTIVE_PREFIX}${pending.urlHash}`]);
+        await updateBadge();
+        setTimeout(
+          () =>
+            void downloadAndOpen(pending.url, pending.tabId, pending.retryCount + 1),
+          delay,
+        );
+        continue;
+      }
       await finishPending(
         id,
         pending,

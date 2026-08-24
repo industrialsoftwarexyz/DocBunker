@@ -13,7 +13,6 @@ const PROVIDERS = [
     test: (a) => a.href.includes("mail.google.com/"),
     isAttachment: (a, text) =>
       a.hasAttribute("download") || SUPPORTED_EXT.test(text),
-    batchSelector: 'div[role="listitem"]',
   },
   {
     name: "outlook",
@@ -26,7 +25,6 @@ const PROVIDERS = [
       /attachment|viewasmessage/i.test(a.className) ||
       SUPPORTED_EXT.test(text) ||
       SUPPORTED_EXT.test(a.href),
-    batchSelector: '[class*="thread"]',
   },
   {
     name: "yahoo",
@@ -35,7 +33,6 @@ const PROVIDERS = [
       a.hasAttribute("download") ||
       SUPPORTED_EXT.test(text) ||
       SUPPORTED_EXT.test(a.href),
-    batchSelector: '[data-test-id*="msg"]',
   },
   {
     name: "proton",
@@ -46,7 +43,6 @@ const PROVIDERS = [
       a.hasAttribute("download") ||
       SUPPORTED_EXT.test(text) ||
       SUPPORTED_EXT.test(a.href),
-    batchSelector: '[class*="message"]',
   },
   {
     name: "icloud",
@@ -56,14 +52,12 @@ const PROVIDERS = [
       a.getAttribute("data-qa") === "attachment-download" ||
       SUPPORTED_EXT.test(text) ||
       SUPPORTED_EXT.test(a.href),
-    batchSelector: '[class*="mail"]',
   },
   {
     name: "zoho",
     test: (a) => a.href.includes("mail.zoho."),
     isAttachment: (a, text) =>
       a.hasAttribute("download") || SUPPORTED_EXT.test(text),
-    batchSelector: '[class*="message"]',
   },
   {
     name: "gmx",
@@ -71,14 +65,12 @@ const PROVIDERS = [
       a.href.includes("gmx.com/") || a.href.includes("gmx.net/"),
     isAttachment: (a, text) =>
       a.hasAttribute("download") || SUPPORTED_EXT.test(text),
-    batchSelector: '[class*="mail"]',
   },
   {
     name: "webde",
     test: (a) => a.href.includes("web.de/"),
     isAttachment: (a, text) =>
       a.hasAttribute("download") || SUPPORTED_EXT.test(text),
-    batchSelector: '[class*="mail"]',
   },
   {
     name: "mail-com",
@@ -91,16 +83,32 @@ const PROVIDERS = [
     },
     isAttachment: (a, text) =>
       a.hasAttribute("download") || SUPPORTED_EXT.test(text),
-    batchSelector: '[class*="mail"]',
   },
   {
     name: "aol",
     test: (a) => a.href.includes("mail.aol.com/"),
     isAttachment: (a, text) =>
       a.hasAttribute("download") || SUPPORTED_EXT.test(text),
-    batchSelector: '[class*="mail"]',
   },
 ];
+
+// --- file type filter ---
+let enabledTypes = null;
+
+async function loadTypeFilter() {
+  try {
+    const result = await chrome.storage.local.get({ enabledTypes: null });
+    if (result.enabledTypes && Array.isArray(result.enabledTypes)) {
+      enabledTypes = new Set(result.enabledTypes);
+    }
+  } catch {}
+}
+
+function isTypeAllowed(filename) {
+  if (!enabledTypes) return true; // no filter = allow all
+  const ext = filename.split(".").pop()?.toLowerCase();
+  return enabledTypes.has(ext);
+}
 
 // --- find current provider ---
 function detectProvider() {
@@ -128,6 +136,20 @@ function detectProvider() {
 
 const currentProvider = detectProvider();
 
+// --- helpers ---
+function extractFilenameFromLink(link) {
+  const text = `${link.textContent ?? ""} ${link.getAttribute("aria-label") ?? ""}`.toLowerCase();
+  const match = text.match(/\b[\w.-]+\.(pdf|png|jpe?g|webp|docx|pptx|xlsx)\b/);
+  if (match) return match[0];
+  try {
+    const pathname = new URL(link.href).pathname;
+    const segments = pathname.split("/");
+    const last = segments[segments.length - 1];
+    if (last) return decodeURIComponent(last);
+  } catch {}
+  return "attachment";
+}
+
 // --- attachment link scanning ---
 function getAttachmentLinks() {
   const links = [];
@@ -137,6 +159,7 @@ function getAttachmentLinks() {
     if (!currentProvider || !currentProvider.test(link)) continue;
     const text = `${link.textContent ?? ""} ${link.getAttribute("aria-label") ?? ""}`.toLowerCase();
     if (!currentProvider.isAttachment(link, text)) continue;
+    if (!isTypeAllowed(extractFilenameFromLink(link))) continue;
     links.push(link);
   }
   return links;
@@ -149,6 +172,7 @@ function addButtons(root = document) {
     if (!currentProvider || !currentProvider.test(link)) continue;
     const text = `${link.textContent ?? ""} ${link.getAttribute("aria-label") ?? ""}`.toLowerCase();
     if (!currentProvider.isAttachment(link, text)) continue;
+    if (!isTypeAllowed(extractFilenameFromLink(link))) continue;
 
     link.dataset.docbunkerReady = "true";
     const button = document.createElement("button");
@@ -213,7 +237,6 @@ function addBatchButton() {
     );
   });
 
-  // Find a good insertion point: after the last attachment button or link
   const lastLink = links[links.length - 1];
   const lastButton = lastLink?.nextElementSibling;
   const anchor = lastButton?.classList?.contains(BUTTON_CLASS)
@@ -259,27 +282,39 @@ style.textContent = `
 document.documentElement.appendChild(style);
 
 // --- init ---
-addButtons();
-new MutationObserver((records) => {
-  for (const record of records) {
-    for (const node of record.addedNodes) {
-      if (node instanceof Element) addButtons(node);
+(async () => {
+  await loadTypeFilter();
+  addButtons();
+  new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (node instanceof Element) addButtons(node);
+      }
     }
+  }).observe(document.body, { childList: true, subtree: true });
+})();
+
+// --- listen for filter changes from options page ---
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes.enabledTypes) {
+    enabledTypes = new Set(changes.enabledTypes.newValue);
+    // re-scan: remove buttons for disabled types, add for newly enabled
+    document.querySelectorAll(`.${BUTTON_CLASS}, .${BATCH_BUTTON_CLASS}`).forEach((el) => el.remove());
+    document.querySelectorAll("[data-docbunker-ready]").forEach((el) => delete el.dataset.docbunkerReady);
+    addButtons();
   }
-}).observe(document.body, { childList: true, subtree: true });
+});
 
 // --- keyboard shortcut: open focused attachment ---
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "getFocusedAttachment") {
     const focused = document.activeElement;
-    // Walk up from focused element to find an attachment link
     let el = focused;
     while (el && el !== document.body) {
       if (el.tagName === "A" && el.dataset.docbunkerReady) {
         sendResponse({ url: el.href });
         return;
       }
-      // Check siblings for a DocBunker button
       const btn = el.querySelector?.(`.${BUTTON_CLASS}`);
       if (btn) {
         const prevBtn = el.previousElementSibling;
@@ -293,7 +328,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       el = el.parentElement;
     }
-    // Fallback: find the first DocBunker button near the cursor
     const buttons = document.querySelectorAll(`.${BUTTON_CLASS}`);
     for (const btn of buttons) {
       const rect = btn.getBoundingClientRect();
