@@ -1,9 +1,10 @@
 // Options page logic — persists settings to chrome.storage.local.
 
-const ALL_TYPES = ["pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx"];
+const ALL_TYPES = ["pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx", "gif", "tiff", "bmp", "epub", "rtf"];
 
 const defaults = {
   deleteAfterOpen: false,
+  autoOpen: false,
   enabledTypes: [...ALL_TYPES],
   downloadDir: "",
 };
@@ -13,6 +14,7 @@ async function load() {
   const stored = await chrome.storage.local.get(defaults);
 
   document.querySelector("#delete-after-open").checked = stored.deleteAfterOpen;
+  document.querySelector("#auto-open").checked = stored.autoOpen;
   document.querySelector("#download-dir").value = stored.downloadDir;
 
   const container = document.querySelector("#type-toggles");
@@ -38,6 +40,10 @@ function saveTypes() {
 
 document.querySelector("#delete-after-open").addEventListener("change", (e) => {
   chrome.storage.local.set({ deleteAfterOpen: e.target.checked });
+});
+
+document.querySelector("#auto-open").addEventListener("change", (e) => {
+  chrome.storage.local.set({ autoOpen: e.target.checked });
 });
 
 document.querySelector("#download-dir").addEventListener("change", (e) => {

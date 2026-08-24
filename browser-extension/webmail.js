@@ -5,7 +5,7 @@
 const BUTTON_CLASS = "docbunker-open-button";
 const BATCH_BUTTON_CLASS = "docbunker-open-all";
 
-const SUPPORTED_EXT = /\.(pdf|png|jpe?g|webp|docx|pptx|xlsx)$/i;
+const SUPPORTED_EXT = /\.(pdf|png|jpe?g|webp|docx|pptx|xlsx|gif|tiff?|bmp|epub|rtf)$/i;
 
 const PROVIDERS = [
   {
@@ -139,7 +139,7 @@ const currentProvider = detectProvider();
 // --- helpers ---
 function extractFilenameFromLink(link) {
   const text = `${link.textContent ?? ""} ${link.getAttribute("aria-label") ?? ""}`.toLowerCase();
-  const match = text.match(/\b[\w.-]+\.(pdf|png|jpe?g|webp|docx|pptx|xlsx)\b/);
+  const match = text.match(/\b[\w.-]+\.(pdf|png|jpe?g|webp|docx|pptx|xlsx|gif|tiff?|bmp|epub|rtf)\b/);
   if (match) return match[0];
   try {
     const pathname = new URL(link.href).pathname;
@@ -185,13 +185,19 @@ function addButtons(root = document) {
       event.preventDefault();
       event.stopPropagation();
       button.disabled = true;
+      button.dataset.status = "downloading";
       button.textContent = "Downloading\u2026";
       chrome.runtime.sendMessage(
         { type: "openAttachment", url: link.href },
         (response) => {
           if (!response?.ok) {
             button.disabled = false;
+            button.dataset.status = "error";
             button.textContent = response?.message ?? "Try again";
+            setTimeout(() => {
+              button.dataset.status = "";
+              button.textContent = "Open in DocBunker";
+            }, 2500);
             return;
           }
           button.dataset.docbunkerRequest = response.requestId;
@@ -263,9 +269,28 @@ style.textContent = `
     border-radius: 3px;
     font: 12px "Segoe UI", sans-serif;
     cursor: pointer;
+    transition: all 0.15s ease;
   }
   .${BUTTON_CLASS}:hover { background: linear-gradient(#fff, #c6e5f7); }
-  .${BUTTON_CLASS}:disabled { color: #777; cursor: default; }
+  .${BUTTON_CLASS}:disabled { color: #777; cursor: default; opacity: 0.7; }
+  .${BUTTON_CLASS}[data-status="downloading"] {
+    color: #174a70;
+    background: #e8f0f8;
+    cursor: wait;
+  }
+  .${BUTTON_CLASS}[data-status="downloading"]::before {
+    content: "";
+    display: inline-block;
+    width: 10px; height: 10px;
+    margin-inline-end: 4px;
+    border: 2px solid #7d9db5;
+    border-top-color: #174a70;
+    border-radius: 50%;
+    animation: docbunker-spin 0.6s linear infinite;
+  }
+  .${BUTTON_CLASS}[data-status="ok"] { color: #1a7a3a; border-color: #5aad7a; }
+  .${BUTTON_CLASS}[data-status="error"] { color: #a33; border-color: #d66; }
+  @keyframes docbunker-spin { to { transform: rotate(360deg); } }
   .${BATCH_BUTTON_CLASS} {
     margin-inline-start: 6px;
     padding: 4px 10px;
@@ -275,6 +300,7 @@ style.textContent = `
     border-radius: 3px;
     font: 12px "Segoe UI", sans-serif;
     cursor: pointer;
+    transition: all 0.15s ease;
   }
   .${BATCH_BUTTON_CLASS}:hover { background: #1a5a8a; }
   .${BATCH_BUTTON_CLASS}:disabled { color: #aaa; cursor: default; background: #555; }
@@ -292,6 +318,16 @@ document.documentElement.appendChild(style);
       }
     }
   }).observe(document.body, { childList: true, subtree: true });
+
+  // auto-open: trigger all buttons once on load if enabled
+  const { autoOpen = false } = await chrome.storage.local.get("autoOpen");
+  if (autoOpen) {
+    setTimeout(() => {
+      for (const btn of document.querySelectorAll(`.${BUTTON_CLASS}`)) {
+        if (!btn.disabled) btn.click();
+      }
+    }, 1500);
+  }
 })();
 
 // --- listen for filter changes from options page ---
@@ -307,6 +343,27 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 // --- keyboard shortcut: open focused attachment ---
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "getContextMenuFilename") {
+    const focused = document.activeElement;
+    let el = focused;
+    while (el && el !== document.body) {
+      if (el.tagName === "A" && currentProvider?.test(el)) {
+        sendResponse({ filename: extractFilenameFromLink(el) });
+        return;
+      }
+      el = el.parentElement;
+    }
+    const first = document.querySelector(`.${BUTTON_CLASS}`);
+    if (first) {
+      const link = first.previousElementSibling;
+      if (link?.href) {
+        sendResponse({ filename: extractFilenameFromLink(link) });
+        return;
+      }
+    }
+    sendResponse({ filename: null });
+  }
+
   if (message?.type === "getFocusedAttachment") {
     const focused = document.activeElement;
     let el = focused;
@@ -353,6 +410,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   ) {
     for (const button of document.querySelectorAll(`.${BUTTON_CLASS}`)) {
       if (button.dataset.docbunkerRequest !== message.requestId) continue;
+      button.dataset.status = message.status === "opened" ? "ok" : "error";
       button.textContent =
         message.status === "opened"
           ? "Opened in DocBunker"
@@ -360,6 +418,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       button.title = message.message;
       button.disabled = false;
       delete button.dataset.docbunkerRequest;
+      if (message.status === "opened") {
+        setTimeout(() => {
+          button.dataset.status = "";
+          button.textContent = "Open in DocBunker";
+        }, 3000);
+      }
     }
   }
 });

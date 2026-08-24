@@ -48,36 +48,71 @@
       {
         "ext": ["pdf"],
         "name": "DocBunker PDF",
-        "description": "Documento PDF",
+        "description": "PDF document",
         "mimeType": "application/pdf",
         "role": "Viewer"
       },
       {
         "ext": ["png"],
         "name": "DocBunker PNG",
-        "description": "Imagen PNG",
+        "description": "PNG image",
         "mimeType": "image/png",
         "role": "Viewer"
       },
       {
         "ext": ["jpg", "jpeg"],
         "name": "DocBunker JPEG",
-        "description": "Imagen JPEG",
+        "description": "JPEG image",
         "mimeType": "image/jpeg",
         "role": "Viewer"
       },
       {
         "ext": ["webp"],
         "name": "DocBunker WebP",
-        "description": "Imagen WebP",
+        "description": "WebP image",
         "mimeType": "image/webp",
+        "role": "Viewer"
+      },
+      {
+        "ext": ["gif"],
+        "name": "DocBunker GIF",
+        "description": "GIF image",
+        "mimeType": "image/gif",
+        "role": "Viewer"
+      },
+      {
+        "ext": ["tif", "tiff"],
+        "name": "DocBunker TIFF",
+        "description": "TIFF image",
+        "mimeType": "image/tiff",
+        "role": "Viewer"
+      },
+      {
+        "ext": ["bmp"],
+        "name": "DocBunker BMP",
+        "description": "BMP image",
+        "mimeType": "image/bmp",
         "role": "Viewer"
       },
       {
         "ext": ["docx", "pptx", "xlsx"],
         "name": "DocBunker Office",
-        "description": "Documento de Office (vista previa de texto)",
+        "description": "Office document (text preview)",
         "mimeType": "application/octet-stream",
+        "role": "Viewer"
+      },
+      {
+        "ext": ["epub"],
+        "name": "DocBunker EPUB",
+        "description": "EPUB ebook",
+        "mimeType": "application/epub+zip",
+        "role": "Viewer"
+      },
+      {
+        "ext": ["rtf"],
+        "name": "DocBunker RTF",
+        "description": "Rich Text Format document",
+        "mimeType": "application/rtf",
         "role": "Viewer"
       }
     ],

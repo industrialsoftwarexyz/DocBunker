@@ -30,8 +30,10 @@ pub const EXTENSION_ORIGIN: &str = "chrome-extension://lmmdckggliegiglepibblfnpa
 /// Chrome native-messaging message size cap (64 KiB, per browser docs).
 pub const MAX_NATIVE_MESSAGE_SIZE: usize = 64 * 1024;
 
-pub const SUPPORTED_EXTENSIONS: [&str; 8] =
-    ["pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx"];
+pub const SUPPORTED_EXTENSIONS: [&str; 14] = [
+    "pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx",
+    "gif", "tif", "tiff", "bmp", "epub", "rtf",
+];
 
 /// Whether the extension reveals a supported document type by name.
 pub fn is_supported_document(path: &Path) -> bool {
@@ -58,8 +60,18 @@ pub fn has_supported_signature(path: &Path) -> bool {
         || header.starts_with(b"\x89PNG\r\n\x1a\n")
         || header.starts_with(b"\xff\xd8\xff")
         || (header.len() >= 12 && &header[..4] == b"RIFF" && &header[8..12] == b"WEBP")
-        // ZIP local-file header: Office containers (ADR-007).
+        // ZIP local-file header: Office containers + EPUB (ADR-007, ADR-010).
         || header.starts_with(b"PK\x03\x04")
+        // GIF
+        || header.starts_with(b"GIF87a")
+        || header.starts_with(b"GIF89a")
+        // TIFF (little-endian or big-endian)
+        || header.starts_with(b"II\x2a\x00")
+        || header.starts_with(b"MM\x00\x2a")
+        // BMP
+        || header.starts_with(b"BM")
+        // RTF
+        || header.starts_with(b"{\\rtf")
 }
 
 /// The directory the browser hand-off may read files from.

@@ -81,6 +81,23 @@ api.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
+// Update context menu title to show hovered link's filename
+api.contextMenus.onShown?.addListener(async (info, tab) => {
+  if (!tab?.id || !isAllowedWebmailUrl(tab.url ?? "")) return;
+  try {
+    api.tabs.sendMessage(
+      tab.id,
+      { type: "getContextMenuFilename" },
+      (response) => {
+        if (chrome.runtime.lastError || !response?.filename) return;
+        api.contextMenus.update(MENU_ID, {
+          title: `Open "${response.filename}" in DocBunker`,
+        });
+      },
+    );
+  } catch {}
+});
+
 // --- keyboard shortcut ---
 api.commands.onCommand.addListener((command) => {
   if (command === "open-focused-attachment") {
