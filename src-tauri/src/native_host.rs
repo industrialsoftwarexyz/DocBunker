@@ -139,14 +139,11 @@ pub fn register() -> Result<(), String> {
     let filename = format!("{HOST_NAME}.json");
 
     // Chrome
-    let chrome_dir = home
-        .join("Library/Application Support/Google/Chrome/NativeMessagingHosts");
+    let chrome_dir = home.join("Library/Application Support/Google/Chrome/NativeMessagingHosts");
     write_manifest(&chrome_dir.join(&filename), &broker)?;
 
     // Edge
-    let edge_dir = home.join(
-        "Library/Application Support/Microsoft Edge/NativeMessagingHosts",
-    );
+    let edge_dir = home.join("Library/Application Support/Microsoft Edge/NativeMessagingHosts");
     write_manifest(&edge_dir.join(&filename), &broker)?;
 
     // Firefox
