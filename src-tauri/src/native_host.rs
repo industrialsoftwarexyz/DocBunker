@@ -1,10 +1,10 @@
-//! Chrome native-messaging host **registration**.
+//! Native-messaging host **registration** for Chrome, Edge, and Firefox.
 //!
 //! The inbound native-message loop lives in the dedicated `docbunker-native-broker`
-//! binary (`crates/native-broker`), which is the only component the Chrome
-//! extension can reach. The app only writes the host manifest (pointing at the
-//! broker) and the registry keys — and verifies the broker is actually
-//! deployed next to it so we never register a dangling host.
+//! binary (`crates/native-broker`), which is the only component the browser
+//! extension can reach. The app writes the host manifest and registry keys —
+//! and verifies the broker is actually deployed next to it so we never
+//! register a dangling host.
 
 #[cfg(any(target_os = "windows", test))]
 use std::path::PathBuf;
@@ -31,8 +31,8 @@ pub fn broker_binary() -> Option<PathBuf> {
         .and_then(|executable| executable.parent().map(|dir| dir.join(name)))
 }
 
-/// The broker must exist before we point the browser at it; otherwise Chrome
-/// would either fail loudly (misconfiguration) or, worse, invoke nothing.
+/// The broker must exist before we point the browser at it; otherwise the
+/// browser would either fail loudly (misconfiguration) or, worse, invoke nothing.
 #[cfg(target_os = "windows")]
 fn broker_binary_or_error() -> Result<PathBuf, String> {
     broker_binary()
@@ -42,6 +42,30 @@ fn broker_binary_or_error() -> Result<PathBuf, String> {
                 .to_string()
         })
 }
+
+/// Write a native-messaging host manifest JSON file at `manifest_path`.
+fn write_manifest(manifest_path: &std::path::Path, broker: &std::path::Path) -> Result<(), String> {
+    let manifest = serde_json::json!({
+        "name": HOST_NAME,
+        "description": "Open downloaded webmail attachments in DocBunker",
+        "path": broker,
+        "type": "stdio",
+        "allowed_origins": [EXTENSION_ORIGIN],
+    });
+    if let Some(parent) = manifest_path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|error| format!("cannot create native host directory: {error}"))?;
+    }
+    std::fs::write(
+        manifest_path,
+        serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| format!("cannot write native host manifest: {error}"))
+}
+
+// ---------------------------------------------------------------------------
+// Windows — register via registry for Chrome, Edge, and Firefox
+// ---------------------------------------------------------------------------
 
 #[cfg(target_os = "windows")]
 pub fn register() -> Result<(), String> {
@@ -53,37 +77,136 @@ pub fn register() -> Result<(), String> {
         .map(PathBuf::from)
         .ok_or_else(|| "LOCALAPPDATA is unavailable".to_string())?
         .join("DocBunker")
-        .join("Chrome");
+        .join("NativeHosts");
     std::fs::create_dir_all(&base)
-        .map_err(|error| format!("cannot create Chrome integration directory: {error}"))?;
+        .map_err(|error| format!("cannot create native host directory: {error}"))?;
     let manifest_path = base.join(format!("{HOST_NAME}.json"));
-    let manifest = serde_json::json!({
-        "name": HOST_NAME,
-        "description": "Open downloaded Gmail attachments in DocBunker",
-        "path": broker,
-        "type": "stdio",
-        "allowed_origins": [EXTENSION_ORIGIN],
-    });
-    std::fs::write(
-        &manifest_path,
-        serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?,
-    )
-    .map_err(|error| format!("cannot write native host manifest: {error}"))?;
+    write_manifest(&manifest_path, &broker)?;
 
+    let manifest_str = manifest_path.to_string_lossy().to_string();
     let chrome = RegKey::predef(HKEY_CURRENT_USER);
+
+    // Chrome
     let (key, _) = chrome
         .create_subkey(format!(
             "Software\\Google\\Chrome\\NativeMessagingHosts\\{HOST_NAME}"
         ))
         .map_err(|error| format!("cannot register Chrome native host: {error}"))?;
-    key.set_value("", &manifest_path.to_string_lossy().as_ref())
-        .map_err(|error| format!("cannot register native host manifest: {error}"))
+    key.set_value("", &manifest_str)
+        .map_err(|error| format!("cannot register Chrome native host manifest: {error}"))?;
+
+    // Edge (same manifest format as Chrome)
+    let (key, _) = chrome
+        .create_subkey(format!(
+            "Software\\Microsoft\\Edge\\NativeMessagingHosts\\{HOST_NAME}"
+        ))
+        .map_err(|error| format!("cannot register Edge native host: {error}"))?;
+    key.set_value("", &manifest_str)
+        .map_err(|error| format!("cannot register Edge native host manifest: {error}"))?;
+
+    // Firefox (registry path mirrors Chrome's structure)
+    let (key, _) = chrome
+        .create_subkey(format!(
+            "Software\\Mozilla\\NativeMessagingHosts\\{HOST_NAME}"
+        ))
+        .map_err(|error| format!("cannot register Firefox native host: {error}"))?;
+    key.set_value("", &manifest_str)
+        .map_err(|error| format!("cannot register Firefox native host manifest: {error}"))
 }
 
-#[cfg(not(target_os = "windows"))]
+// ---------------------------------------------------------------------------
+// macOS — write manifest files to per-browser directories
+// ---------------------------------------------------------------------------
+
+#[cfg(target_os = "macos")]
+pub fn register() -> Result<(), String> {
+    let broker = std::env::var_os("DOCBUNKER_NATIVE_BROKER_BIN")
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::current_exe()
+                .ok()
+                .and_then(|exe| exe.parent().map(|dir| dir.join("docbunker-native-broker")))
+        })
+        .filter(|path| path.is_file())
+        .ok_or_else(|| {
+            "DocBunker native-messaging broker is missing (ship docbunker-native-broker next to the app)"
+                .to_string()
+        })?;
+
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .ok_or_else(|| "HOME is unavailable".to_string())?;
+    let filename = format!("{HOST_NAME}.json");
+
+    // Chrome
+    let chrome_dir = home
+        .join("Library/Application Support/Google/Chrome/NativeMessagingHosts");
+    write_manifest(&chrome_dir.join(&filename), &broker)?;
+
+    // Edge
+    let edge_dir = home.join(
+        "Library/Application Support/Microsoft Edge/NativeMessagingHosts",
+    );
+    write_manifest(&edge_dir.join(&filename), &broker)?;
+
+    // Firefox
+    let firefox_dir = home.join(".mozilla/native-messaging-hosts");
+    write_manifest(&firefox_dir.join(&filename), &broker)
+}
+
+// ---------------------------------------------------------------------------
+// Linux — write manifest files to per-browser directories
+// ---------------------------------------------------------------------------
+
+#[cfg(target_os = "linux")]
+pub fn register() -> Result<(), String> {
+    let broker = std::env::var_os("DOCBUNKER_NATIVE_BROKER_BIN")
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::current_exe()
+                .ok()
+                .and_then(|exe| exe.parent().map(|dir| dir.join("docbunker-native-broker")))
+        })
+        .filter(|path| path.is_file())
+        .ok_or_else(|| {
+            "DocBunker native-messaging broker is missing (ship docbunker-native-broker next to the app)"
+                .to_string()
+        })?;
+
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .ok_or_else(|| "HOME is unavailable".to_string())?;
+    let filename = format!("{HOST_NAME}.json");
+
+    // Chrome
+    let chrome_dir = home.join(".config/google-chrome/NativeMessagingHosts");
+    write_manifest(&chrome_dir.join(&filename), &broker)?;
+
+    // Chromium
+    let chromium_dir = home.join(".config/chromium/NativeMessagingHosts");
+    write_manifest(&chromium_dir.join(&filename), &broker)?;
+
+    // Edge
+    let edge_dir = home.join(".config/microsoft-edge/NativeMessagingHosts");
+    write_manifest(&edge_dir.join(&filename), &broker)?;
+
+    // Firefox
+    let firefox_dir = home.join(".mozilla/native-messaging-hosts");
+    write_manifest(&firefox_dir.join(&filename), &broker)
+}
+
+// ---------------------------------------------------------------------------
+// Fallback for other platforms (shouldn't happen in practice)
+// ---------------------------------------------------------------------------
+
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
 pub fn register() -> Result<(), String> {
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
