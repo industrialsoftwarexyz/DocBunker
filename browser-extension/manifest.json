@@ -31,6 +31,15 @@
     "page": "options.html",
     "open_in_tab": false
   },
+  "commands": {
+    "open-focused-attachment": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+O",
+        "mac": "Command+Shift+O"
+      },
+      "description": "Open focused attachment in DocBunker"
+    }
+  },
   "content_scripts": [
     {
       "matches": [

@@ -1,8 +1,9 @@
 // Generic webmail attachment scanner.
-// Replaces the old Gmail-only gmail.js. Each provider defines how to find
-// attachment links and verify the URL belongs to that provider.
+// Each provider defines how to find attachment links and verify the URL
+// belongs to that provider.
 
 const BUTTON_CLASS = "docbunker-open-button";
+const BATCH_BUTTON_CLASS = "docbunker-open-all";
 
 const SUPPORTED_EXT = /\.(pdf|png|jpe?g|webp|docx|pptx|xlsx)$/i;
 
@@ -12,6 +13,7 @@ const PROVIDERS = [
     test: (a) => a.href.includes("mail.google.com/"),
     isAttachment: (a, text) =>
       a.hasAttribute("download") || SUPPORTED_EXT.test(text),
+    batchSelector: 'div[role="listitem"]',
   },
   {
     name: "outlook",
@@ -24,6 +26,7 @@ const PROVIDERS = [
       /attachment|viewasmessage/i.test(a.className) ||
       SUPPORTED_EXT.test(text) ||
       SUPPORTED_EXT.test(a.href),
+    batchSelector: '[class*="thread"]',
   },
   {
     name: "yahoo",
@@ -32,6 +35,7 @@ const PROVIDERS = [
       a.hasAttribute("download") ||
       SUPPORTED_EXT.test(text) ||
       SUPPORTED_EXT.test(a.href),
+    batchSelector: '[data-test-id*="msg"]',
   },
   {
     name: "proton",
@@ -42,6 +46,7 @@ const PROVIDERS = [
       a.hasAttribute("download") ||
       SUPPORTED_EXT.test(text) ||
       SUPPORTED_EXT.test(a.href),
+    batchSelector: '[class*="message"]',
   },
   {
     name: "icloud",
@@ -51,12 +56,14 @@ const PROVIDERS = [
       a.getAttribute("data-qa") === "attachment-download" ||
       SUPPORTED_EXT.test(text) ||
       SUPPORTED_EXT.test(a.href),
+    batchSelector: '[class*="mail"]',
   },
   {
     name: "zoho",
     test: (a) => a.href.includes("mail.zoho."),
     isAttachment: (a, text) =>
       a.hasAttribute("download") || SUPPORTED_EXT.test(text),
+    batchSelector: '[class*="message"]',
   },
   {
     name: "gmx",
@@ -64,12 +71,14 @@ const PROVIDERS = [
       a.href.includes("gmx.com/") || a.href.includes("gmx.net/"),
     isAttachment: (a, text) =>
       a.hasAttribute("download") || SUPPORTED_EXT.test(text),
+    batchSelector: '[class*="mail"]',
   },
   {
     name: "webde",
     test: (a) => a.href.includes("web.de/"),
     isAttachment: (a, text) =>
       a.hasAttribute("download") || SUPPORTED_EXT.test(text),
+    batchSelector: '[class*="mail"]',
   },
   {
     name: "mail-com",
@@ -82,32 +91,72 @@ const PROVIDERS = [
     },
     isAttachment: (a, text) =>
       a.hasAttribute("download") || SUPPORTED_EXT.test(text),
+    batchSelector: '[class*="mail"]',
   },
   {
     name: "aol",
     test: (a) => a.href.includes("mail.aol.com/"),
     isAttachment: (a, text) =>
       a.hasAttribute("download") || SUPPORTED_EXT.test(text),
+    batchSelector: '[class*="mail"]',
   },
 ];
+
+// --- find current provider ---
+function detectProvider() {
+  const host = location.hostname;
+  return PROVIDERS.find((p) => {
+    if (p.name === "gmail") return host === "mail.google.com";
+    if (p.name === "outlook")
+      return (
+        host === "outlook.live.com" ||
+        host === "outlook.office.com" ||
+        host === "outlook.office365.com"
+      );
+    if (p.name === "yahoo") return host === "mail.yahoo.com";
+    if (p.name === "proton")
+      return host === "mail.proton.me" || host === "mail.protonmail.com";
+    if (p.name === "icloud") return host === "icloud.com";
+    if (p.name === "zoho") return host.startsWith("mail.zoho.");
+    if (p.name === "gmx") return host === "gmx.com" || host === "gmx.net";
+    if (p.name === "webde") return host === "www.web.de";
+    if (p.name === "mail-com") return host === "mail.com";
+    if (p.name === "aol") return host === "mail.aol.com";
+    return false;
+  });
+}
+
+const currentProvider = detectProvider();
+
+// --- attachment link scanning ---
+function getAttachmentLinks() {
+  const links = [];
+  for (const link of document.querySelectorAll("a[href]")) {
+    if (!(link instanceof HTMLAnchorElement) || link.dataset.docbunkerReady)
+      continue;
+    if (!currentProvider || !currentProvider.test(link)) continue;
+    const text = `${link.textContent ?? ""} ${link.getAttribute("aria-label") ?? ""}`.toLowerCase();
+    if (!currentProvider.isAttachment(link, text)) continue;
+    links.push(link);
+  }
+  return links;
+}
 
 function addButtons(root = document) {
   for (const link of root.querySelectorAll("a[href]")) {
     if (!(link instanceof HTMLAnchorElement) || link.dataset.docbunkerReady)
       continue;
-
-    const provider = PROVIDERS.find((p) => p.test(link));
-    if (!provider) continue;
-
+    if (!currentProvider || !currentProvider.test(link)) continue;
     const text = `${link.textContent ?? ""} ${link.getAttribute("aria-label") ?? ""}`.toLowerCase();
-    if (!provider.isAttachment(link, text)) continue;
+    if (!currentProvider.isAttachment(link, text)) continue;
 
     link.dataset.docbunkerReady = "true";
     const button = document.createElement("button");
     button.type = "button";
     button.className = BUTTON_CLASS;
     button.textContent = "Open in DocBunker";
-    button.title = "Download and open this attachment in the isolated DocBunker viewer";
+    button.title =
+      "Download and open this attachment in the isolated DocBunker viewer";
     button.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -127,8 +176,59 @@ function addButtons(root = document) {
     });
     link.insertAdjacentElement("afterend", button);
   }
+  addBatchButton();
 }
 
+// --- "Open all" batch button ---
+function addBatchButton() {
+  const existing = document.querySelector(`.${BATCH_BUTTON_CLASS}`);
+  if (existing) existing.remove();
+
+  const links = getAttachmentLinks();
+  if (links.length < 2) return;
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = BATCH_BUTTON_CLASS;
+  btn.textContent = `Open all ${links.length} in DocBunker`;
+  btn.title = "Download and open all attachments in the DocBunker sandbox";
+
+  btn.addEventListener("click", () => {
+    btn.disabled = true;
+    btn.textContent = "Opening\u2026";
+    const urls = getAttachmentLinks().map((a) => a.href);
+    chrome.runtime.sendMessage(
+      { type: "openAllAttachments", urls },
+      (response) => {
+        if (response?.ok) {
+          btn.textContent = `Opened ${response.opened} in DocBunker`;
+          if (response.failed > 0) {
+            btn.textContent += ` (${response.failed} failed)`;
+          }
+        } else {
+          btn.textContent = response?.message ?? "Failed";
+          btn.disabled = false;
+        }
+      },
+    );
+  });
+
+  // Find a good insertion point: after the last attachment button or link
+  const lastLink = links[links.length - 1];
+  const lastButton = lastLink?.nextElementSibling;
+  const anchor = lastButton?.classList?.contains(BUTTON_CLASS)
+    ? lastButton
+    : lastLink;
+  if (anchor?.parentNode) {
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText =
+      "margin-top:6px; margin-inline-start:0; padding:2px 0;";
+    wrapper.appendChild(btn);
+    anchor.parentNode.insertBefore(wrapper, anchor.nextSibling);
+  }
+}
+
+// --- styles ---
 const style = document.createElement("style");
 style.textContent = `
   .${BUTTON_CLASS} {
@@ -143,9 +243,22 @@ style.textContent = `
   }
   .${BUTTON_CLASS}:hover { background: linear-gradient(#fff, #c6e5f7); }
   .${BUTTON_CLASS}:disabled { color: #777; cursor: default; }
+  .${BATCH_BUTTON_CLASS} {
+    margin-inline-start: 6px;
+    padding: 4px 10px;
+    color: #fff;
+    background: #174a70;
+    border: 1px solid #0f3554;
+    border-radius: 3px;
+    font: 12px "Segoe UI", sans-serif;
+    cursor: pointer;
+  }
+  .${BATCH_BUTTON_CLASS}:hover { background: #1a5a8a; }
+  .${BATCH_BUTTON_CLASS}:disabled { color: #aaa; cursor: default; background: #555; }
 `;
 document.documentElement.appendChild(style);
 
+// --- init ---
 addButtons();
 new MutationObserver((records) => {
   for (const record of records) {
@@ -155,18 +268,64 @@ new MutationObserver((records) => {
   }
 }).observe(document.body, { childList: true, subtree: true });
 
-chrome.runtime.onMessage.addListener((message) => {
+// --- keyboard shortcut: open focused attachment ---
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "getFocusedAttachment") {
+    const focused = document.activeElement;
+    // Walk up from focused element to find an attachment link
+    let el = focused;
+    while (el && el !== document.body) {
+      if (el.tagName === "A" && el.dataset.docbunkerReady) {
+        sendResponse({ url: el.href });
+        return;
+      }
+      // Check siblings for a DocBunker button
+      const btn = el.querySelector?.(`.${BUTTON_CLASS}`);
+      if (btn) {
+        const prevBtn = el.previousElementSibling;
+        if (
+          prevBtn?.classList?.contains(BUTTON_CLASS) ||
+          prevBtn?.dataset?.docbunkerReady
+        ) {
+          sendResponse({ url: prevBtn.href || prevBtn.previousElementSibling?.href });
+          return;
+        }
+      }
+      el = el.parentElement;
+    }
+    // Fallback: find the first DocBunker button near the cursor
+    const buttons = document.querySelectorAll(`.${BUTTON_CLASS}`);
+    for (const btn of buttons) {
+      const rect = btn.getBoundingClientRect();
+      if (
+        rect.top >= 0 &&
+        rect.top <= window.innerHeight &&
+        rect.left >= 0 &&
+        rect.left <= window.innerWidth
+      ) {
+        const link = btn.previousElementSibling;
+        if (link?.href) {
+          sendResponse({ url: link.href });
+          return;
+        }
+      }
+    }
+    sendResponse({ url: null });
+  }
+
   if (
-    message?.type !== "docBunkerStatus" ||
-    typeof message.requestId !== "string"
-  )
-    return;
-  for (const button of document.querySelectorAll(`.${BUTTON_CLASS}`)) {
-    if (button.dataset.docbunkerRequest !== message.requestId) continue;
-    button.textContent =
-      message.status === "opened" ? "Opened in DocBunker" : "Open in DocBunker";
-    button.title = message.message;
-    button.disabled = false;
-    delete button.dataset.docbunkerRequest;
+    message?.type === "docBunkerStatus" &&
+    typeof message.requestId === "string"
+  ) {
+    for (const button of document.querySelectorAll(`.${BUTTON_CLASS}`)) {
+      if (button.dataset.docbunkerRequest !== message.requestId) continue;
+      button.textContent =
+        message.status === "opened"
+          ? "Opened in DocBunker"
+          : "Open in DocBunker";
+      button.title = message.message;
+      button.disabled = false;
+      delete button.dataset.docbunkerRequest;
+    }
   }
 });

@@ -46,6 +46,18 @@ function storageRemove(keys) {
   return api.storage.local.remove(keys);
 }
 
+// --- badge ---
+async function updateBadge() {
+  const state = await storageGet(null);
+  const count = Object.keys(state).filter((k) =>
+    k.startsWith(PENDING_PREFIX),
+  ).length;
+  api.action.setBadgeText({ text: count > 0 ? String(count) : "" });
+  api.action.setBadgeBackgroundColor({
+    color: count > 0 ? "#174a70" : "#999",
+  });
+}
+
 // --- setup ---
 api.runtime.onInstalled.addListener(async () => {
   await api.contextMenus.removeAll();
@@ -55,6 +67,7 @@ api.runtime.onInstalled.addListener(async () => {
     contexts: ["link"],
     documentUrlPatterns: ALLOWED_URL_PATTERNS,
   });
+  api.action.setBadgeText({ text: "" });
 });
 
 void reconcilePendingDownloads();
@@ -66,8 +79,39 @@ api.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
+// --- keyboard shortcut ---
+api.commands.onCommand.addListener((command) => {
+  if (command === "open-focused-attachment") {
+    void openFocusedAttachment();
+  }
+});
+
+async function openFocusedAttachment() {
+  const [tab] = await api.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return;
+  try {
+    api.tabs.sendMessage(tab.id, { type: "getFocusedAttachment" }, (response) => {
+      if (chrome.runtime.lastError || !response?.url) return;
+      void downloadAndOpen(response.url, tab.id);
+    });
+  } catch {}
+}
+
 // --- messages from content script ---
 api.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "openAllAttachments" && Array.isArray(message.urls)) {
+    if (!sender.tab?.id || !sender.url) {
+      sendResponse({ ok: false, message: "Untrusted message source" });
+      return;
+    }
+    if (!isAllowedWebmailUrl(sender.url)) {
+      sendResponse({ ok: false, message: "Untrusted message source" });
+      return;
+    }
+    void openAllAttachments(message.urls, sender.tab.id).then(sendResponse);
+    return true;
+  }
+
   if (message?.type !== "openAttachment" || typeof message.url !== "string")
     return;
   if (!sender.tab?.id || !sender.url) {
@@ -81,6 +125,21 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
   void downloadAndOpen(message.url, sender.tab.id).then(sendResponse);
   return true;
 });
+
+// --- batch open ---
+async function openAllAttachments(urls, tabId) {
+  const results = [];
+  for (const url of urls) {
+    const result = await downloadAndOpen(url, tabId);
+    results.push(result);
+  }
+  const opened = results.filter((r) => r.ok).length;
+  const failed = results.length - opened;
+  if (failed > 0) {
+    notify(`${failed} attachment${failed > 1 ? "s" : ""} could not be opened`);
+  }
+  return { ok: true, opened, failed };
+}
 
 // --- core flow ---
 async function downloadAndOpen(url, tabId) {
@@ -115,10 +174,12 @@ async function downloadAndOpen(url, tabId) {
         requestId,
         tabId,
         urlHash,
+        filename: extractFilename(url),
         startedAt: Date.now(),
       },
       [activeKey]: requestId,
     });
+    await updateBadge();
     return { ok: true, requestId, status: "downloading" };
   } catch (error) {
     const msg = `Could not download attachment: ${String(error)}`;
@@ -140,7 +201,12 @@ async function finishDownload(id, downloadError) {
   if (!pending) return;
 
   if (downloadError) {
-    await finishPending(id, pending, "failed", `Attachment download failed: ${downloadError}`);
+    await finishPending(
+      id,
+      pending,
+      "failed",
+      `${pending.filename ?? "Attachment"} download failed: ${downloadError}`,
+    );
     return;
   }
 
@@ -150,12 +216,13 @@ async function finishDownload(id, downloadError) {
     return;
   }
 
+  const displayName = pending.filename ?? extractFilename(download.url);
   const response = await sendNativeMessage({
     action: "open_file",
     path: download.filename,
   });
   if (!response.ok) {
-    await finishPending(id, pending, "failed", response.message);
+    await finishPending(id, pending, "failed", `${displayName}: ${response.message}`);
     return;
   }
 
@@ -166,7 +233,7 @@ async function finishDownload(id, downloadError) {
     await api.downloads.removeFile(id).catch(() => undefined);
     await api.downloads.erase({ id });
   }
-  await finishPending(id, pending, "opened", "Opened securely in DocBunker");
+  await finishPending(id, pending, "opened", `${displayName} opened in DocBunker`);
 }
 
 async function finishPending(id, pending, status, message) {
@@ -174,6 +241,7 @@ async function finishPending(id, pending, status, message) {
     `${PENDING_PREFIX}${id}`,
     `${ACTIVE_PREFIX}${pending.urlHash}`,
   ]);
+  await updateBadge();
   if (pending.tabId) {
     api.tabs.sendMessage(
       pending.tabId,
@@ -205,12 +273,13 @@ async function reconcilePendingDownloads() {
         id,
         pending,
         "failed",
-        "Attachment download was interrupted.",
+        `${pending.filename ?? "Attachment"} download was interrupted.`,
       );
     } else if (download.state === "complete") {
       await finishDownload(id);
     }
   }
+  await updateBadge();
 }
 
 // --- native messaging ---
@@ -223,7 +292,11 @@ function sendNativeMessage(message) {
         resolve(
           response?.ok
             ? response
-            : { ok: false, message: response?.message ?? "DocBunker rejected the attachment" },
+            : {
+                ok: false,
+                message:
+                  response?.message ?? "DocBunker rejected the attachment",
+              },
         );
       }
     });
@@ -231,6 +304,16 @@ function sendNativeMessage(message) {
 }
 
 // --- utilities ---
+function extractFilename(url) {
+  try {
+    const pathname = new URL(url).pathname;
+    const segments = pathname.split("/");
+    const last = segments[segments.length - 1];
+    if (last) return decodeURIComponent(last);
+  } catch {}
+  return "attachment";
+}
+
 async function hashUrl(url) {
   const digest = await crypto.subtle.digest(
     "SHA-256",
