@@ -26,17 +26,6 @@ exploiting a bug to run code on your machine. DocBunker doesn't do that.
 It puts the file in a disposable sandbox, renders it there, and only
 shows you the output. When you close it, the sandbox is gone.
 
-```
- your machine                          disposable sandbox
-┌──────────────────┐                 ┌─────────────────────────┐
-│ DocBunker window │    document     │ parser runs HERE        │
-│                  │ ──────────────► │                         │
-│  sees pixels ◄── │    pixels       │ no network              │
-│                  │ ◄────────────── │ no access to your files │
-└──────────────────┘                 │ destroyed on close      │
-                                     └─────────────────────────┘
-```
-
 On Linux it uses gVisor (`runsc`). On Windows and macOS it uses QEMU
 with gVisor inside. Even if the parser has a nasty bug and gets fully
 exploited, it still has to break out of two isolation layers — and
