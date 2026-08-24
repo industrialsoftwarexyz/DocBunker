@@ -16,6 +16,7 @@ use app_config::{AppConfig, BackendConfig};
 use commands::{AppState, StartupFiles};
 use docbunker_sandbox::{MockBackend, SandboxBackend, SubprocessBackend};
 use tauri::{path::BaseDirectory, Emitter, Manager};
+use tauri_plugin_deep_link::DeepLinkExt;
 
 /// Select the sandbox backend.
 fn select_backend(config: AppConfig) -> Result<Box<dyn SandboxBackend>, String> {
@@ -124,15 +125,17 @@ fn main() {
                             let path = std::path::PathBuf::from(&path);
                             if path.is_file() {
                                 let state = app_handle.state::<StartupFiles>();
-                                if let Ok(mut queue) = state.0.lock() {
-                                    let pending = app_config::PendingDocument {
-                                        path,
-                                        ack_path: None,
-                                    };
-                                    if queue.len() < 4 {
-                                        queue.push_back(pending);
-                                        let _ = app_handle.emit("associated-file-ready", ());
-                                    }
+                                let mut queue = match state.0.lock() {
+                                    Ok(q) => q,
+                                    Err(_) => continue,
+                                };
+                                let pending = app_config::PendingDocument {
+                                    path,
+                                    ack_path: None,
+                                };
+                                if queue.len() < 4 {
+                                    queue.push_back(pending);
+                                    let _ = app_handle.emit("associated-file-ready", ());
                                 }
                             }
                         }
