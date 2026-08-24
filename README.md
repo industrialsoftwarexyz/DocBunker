@@ -60,7 +60,7 @@ Get the latest build from
 | Platform | Works on | Extra step needed |
 | --- | --- | --- |
 | Windows 10/11 x64 | WHPX (built into Windows) | install [QEMU](https://qemu.org) separately |
-| macOS (Intel & Apple Silicon) | Hypervisor.framework | install QEMU (`brew install qemu`) |
+| macOS (Apple Silicon) | Hypervisor.framework | install QEMU (`brew install qemu`) |
 | Linux x64 / aarch64 | KVM | install QEMU from your repos |
 
 QEMU is not bundled yet (license review pending). Everything else ships with

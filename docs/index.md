@@ -31,7 +31,7 @@ Windows 10/11 x64. Enable *Windows Hypervisor Platform*, install
 
 <div class="hero-card" markdown="1">
 ### macOS
-Intel and Apple Silicon. Just install QEMU (`brew install qemu`).
+Apple Silicon Macs. Just install QEMU (`brew install qemu`).
 </div>
 
 <div class="hero-card" markdown="1">
