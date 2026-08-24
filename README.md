@@ -4,7 +4,7 @@
 
 # DocBunker
 
-**Open sketchy documents without betting your computer on it.**
+**Open documents you don't trust — without risking your machine.**
 
 [![CI](https://github.com/industrialsoftwarexyz/DocBunker/actions/workflows/ci.yml/badge.svg)](https://github.com/industrialsoftwarexyz/DocBunker/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -16,14 +16,15 @@
 
 ---
 
-That PDF from an unknown sender. The invoice you never expected. The `.docx`
-attached to a job offer.
+## What is this?
 
-Your usual viewer opens these files directly on your machine and trusts its
-parser not to be exploited that day. DocBunker makes no such bet. It copies
-the file into a throwaway sandbox, renders it there, and shows you the result.
-The file never touches your real system, and when you close it, the sandbox is
-destroyed.
+You get a PDF from someone you don't know. Or an invoice you weren't
+expecting. Or a `.docx` attached to a sketchy job offer.
+
+Normally you'd just double-click it and hope your viewer isn't
+exploiting a bug to run code on your machine. DocBunker doesn't do that.
+It puts the file in a disposable sandbox, renders it there, and only
+shows you the output. When you close it, the sandbox is gone.
 
 ```
  your machine                          disposable sandbox
@@ -36,10 +37,10 @@ destroyed.
                                      └─────────────────────────┘
 ```
 
-Under the hood this is gVisor (`runsc`) on Linux, and QEMU with gVisor inside
-on Windows and macOS. Even a full exploit of the parser still has to get
-through two isolation boundaries — and there is nothing in the sandbox worth
-taking.
+On Linux it uses gVisor (`runsc`). On Windows and macOS it uses QEMU
+with gVisor inside. Even if the parser has a nasty bug and gets fully
+exploited, it still has to break out of two isolation layers — and
+there's nothing useful inside the sandbox to steal.
 
 ## What can I open?
 
@@ -49,22 +50,23 @@ taking.
 | PNG, JPEG, WebP | Rendered image |
 | DOCX, PPTX, XLSX | Text preview of the contents |
 
-No copy-paste or search yet — the viewer deliberately works with pixels only,
-so documents cannot smuggle scripts, links or text tricks into your machine.
+You can't copy-paste or search text yet — the viewer works with pixels
+only, on purpose. That way documents can't smuggle scripts, links, or
+text-based tricks into your machine.
 
 ## Download
 
 Get the latest build from
 [**GitHub Releases**](https://github.com/industrialsoftwarexyz/DocBunker/releases/latest).
 
-| Platform | Works on | Extra step needed |
+| Platform | What it uses | You need to install |
 | --- | --- | --- |
-| Windows 10/11 x64 | WHPX (built into Windows) | install [QEMU](https://qemu.org) separately |
-| macOS (Apple Silicon) | Hypervisor.framework | install QEMU (`brew install qemu`) |
-| Linux x64 / aarch64 | KVM | install QEMU from your repos |
+| Windows 10/11 x64 | WHPX (built in) | [QEMU](https://qemu.org) |
+| macOS (Apple Silicon) | Hypervisor.framework | QEMU (`brew install qemu`) |
+| Linux x64 / aarch64 | KVM | QEMU from your package manager |
 
-QEMU is not bundled yet (license review pending). Everything else ships with
-the app. This is version **0.1.0** — early days, expect rough edges.
+QEMU isn't bundled yet (license review in progress). Everything else
+ships with the app. This is **0.1.0** — early days, expect rough edges.
 
 ## Build from source
 
@@ -79,9 +81,10 @@ npm --prefix frontend run dev                    # terminal 1
 cargo run --manifest-path src-tauri/Cargo.toml   # terminal 2
 ```
 
-In debug builds the app uses a fake backend, so you can hack on it without
-QEMU or gVisor. Set `DOCBUNKER_BACKEND` to pick `mock`, `subprocess`, `runsc`
-or `vm`. Details in [docs/sandbox.md](docs/sandbox.md).
+In debug builds the app uses a fake backend, so you can hack on it
+without QEMU or gVisor. Set `DOCBUNKER_BACKEND` to pick `mock`,
+`subprocess`, `runsc` or `vm`. Details in
+[docs/sandbox.md](docs/sandbox.md).
 
 ## Documentation
 
@@ -94,10 +97,10 @@ or `vm`. Details in [docs/sandbox.md](docs/sandbox.md).
 | [Threat model](https://industrialsoftwarexyz.github.io/DocBunker/threat-model/) | What we protect against — and what we don't |
 | [ADRs](https://industrialsoftwarexyz.github.io/DocBunker/adr/) | Why every major decision was made |
 
-Contributing? Read [CONTRIBUTING.md](CONTRIBUTING.md). Found a security issue?
-[SECURITY.md](SECURITY.md) — please don't open a public issue.
+Contributing? Read [CONTRIBUTING.md](CONTRIBUTING.md). Found a security
+issue? [SECURITY.md](SECURITY.md) — please don't open a public issue.
 
 ## License
 
-MIT ([LICENSE](LICENSE)). The optional MuPDF feature links AGPL code and stays
-out of default builds.
+MIT ([LICENSE](LICENSE)). The optional MuPDF feature links AGPL code
+and stays out of default builds.

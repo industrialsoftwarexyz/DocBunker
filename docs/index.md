@@ -2,13 +2,13 @@
 
 <img src="assets/docbunker-logo.svg" alt="DocBunker logo" class="landing-logo">
 
-A PDF from a stranger. An invoice you never expected. A `.docx` attached to
-a job offer.
+You get a PDF from someone you don't know. Or an invoice you weren't
+expecting. Or a `.docx` attached to a sketchy job offer.
 
-Your usual viewer opens these files on your machine and hopes its parser holds
-up. DocBunker doesn't hope: it copies the file into a throwaway sandbox,
-renders it there, and shows you the pixels. Close the document and the sandbox
-is destroyed.
+Normally you'd just double-click it and hope your viewer isn't
+exploiting a bug to run code on your machine. DocBunker doesn't do that.
+It puts the file in a disposable sandbox, renders it there, and only
+shows you the pixels. Close the document and the sandbox is gone.
 
 <div class="landing-cta" markdown="1">
 <a href="https://github.com/industrialsoftwarexyz/DocBunker/releases/latest" class="btn btn-primary">Download</a>
