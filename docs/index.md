@@ -2,13 +2,8 @@
 
 <img src="assets/docbunker-logo.png" alt="DocBunker logo" class="landing-logo">
 
-You get a PDF from someone you don't know. Or an invoice you weren't
-expecting. Or a `.docx` attached to a sketchy job offer.
-
-Normally you'd just double-click it and hope your viewer isn't
-exploiting a bug to run code on your machine. DocBunker doesn't do that.
-It puts the file in a disposable sandbox, renders it there, and only
-shows you the pixels. Close the document and the sandbox is gone.
+Open untrusted documents in a sandbox. PDFs, images, Office files — only
+pixels reach your machine.
 
 <div class="landing-cta" markdown="1">
 <a href="https://github.com/industrialsoftwarexyz/DocBunker/releases/latest" class="btn btn-primary">Download</a>
@@ -17,75 +12,53 @@ shows you the pixels. Close the document and the sandbox is gone.
 
 ## Download
 
-Current release: **0.1.0** — early days, expect rough edges.
-[GitHub Releases](https://github.com/industrialsoftwarexyz/DocBunker/releases/latest)
-has the builds.
+**0.1.0** — [GitHub Releases](https://github.com/industrialsoftwarexyz/DocBunker/releases/latest)
 
 <div class="hero-grid dl-grid" markdown="1">
 
 <div class="hero-card" markdown="1">
 ### Windows
-Windows 10/11 x64. Enable *Windows Hypervisor Platform*, install
-[QEMU](https://qemu.org) separately.
+Windows 10/11 x64. Install [QEMU](https://qemu.org).
 </div>
 
 <div class="hero-card" markdown="1">
 ### macOS
-Apple Silicon Macs. Just install QEMU (`brew install qemu`).
+Apple Silicon. `brew install qemu`.
 </div>
 
 <div class="hero-card" markdown="1">
 ### Linux
-x86_64 and aarch64. Install QEMU from your repos and make sure `/dev/kvm`
-is accessible.
+x86_64 / aarch64. QEMU from your repos.
 </div>
 
 </div>
 
-!!! note "Why is QEMU a manual step?"
-    Its license review for bundling is still open. Everything else the sandbox
-    needs ships with the app.
+## How it works
 
-## What happens when you open a file
+1. Boot a sandbox — no network, no file access, memory/CPU limits.
+2. Document bytes go in through a size-capped channel.
+3. Untrusted worker renders it, sends pixels back.
+4. Pixels are re-checked before reaching your screen.
+5. On close, the sandbox is killed.
 
-1. The app boots a fresh sandbox: no network, no access to your files, hard
-   memory/CPU limits.
-2. Your document's bytes go in through a size-capped channel — never written
-   to disk there.
-3. An untrusted worker renders it and sends pixels back.
-4. Every response is re-checked before a single pixel reaches your screen.
-5. On close (or any timeout or crash) the sandbox is killed and deleted.
+Even a full parser exploit lands in a box with nothing to steal.
+[Honest about what we can't protect against](threat-model.md).
 
-Even if an attacker fully compromises the parser, they land in a box with
-nothing to steal and one tiny protocol to talk through. What could still go
-wrong is documented honestly in the [threat model](threat-model.md) — we don't
-claim to be 100% secure.
+## FAQ
 
-## Questions people ask first
+**Why not my browser/Office viewer?**
+Their parsers run with full machine access. One bug away from code execution.
 
-**Why not just use my browser or Office viewer?**
-They're convenient, but their parsers run with full access to your machine and
-session. One engine bug away from code execution on your computer. DocBunker
-assumes that bug will be found.
+**Can I copy text?**
+Not yet. Pixels only — documents can't smuggle scripts or links.
 
-**Can I copy text or search?**
-Not yet. The sandbox returns pixels only, so documents can't smuggle scripts
-or link tricks to your machine. Validated text extraction may come later,
-behind its own design review.
+## Start here
 
-**Does it protect against everything?**
-No. A compromised host, a WebView bug, or a hypervisor escape are outside what
-any tool can fully promise. The [threat model](threat-model.md) lists them all.
+- [How it works](overview.md)
+- [Architecture](architecture.md)
+- [Sandbox](sandbox.md)
+- [Roadmap](roadmap.md)
+- [ADRs](adr/index.md)
 
-## Where to start
-
-- [How it works](overview.md): what happens when you open a document
-- [Architecture](architecture.md): layers, trust boundaries, crates
-- [Sandbox](sandbox.md): the four backends and the OCI hardening profile
-- [Protocol](protocol.md): the wire format across the IPC channel
-- [Roadmap](roadmap.md): phase-by-phase status
-- [ADRs](adr/index.md): architecture decision records
-
-Building from source, contributing, or reporting a security issue:
-[CONTRIBUTING.md](https://github.com/industrialsoftwarexyz/DocBunker/blob/main/CONTRIBUTING.md)
-and [SECURITY.md](https://github.com/industrialsoftwarexyz/DocBunker/blob/main/SECURITY.md).
+[CONTRIBUTING.md](https://github.com/industrialsoftwarexyz/DocBunker/blob/main/CONTRIBUTING.md) ·
+[SECURITY.md](https://github.com/industrialsoftwarexyz/DocBunker/blob/main/SECURITY.md)
