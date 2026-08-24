@@ -27,5 +27,5 @@ Does this change affect the security profile described in `docs/threat-model.md`
 - [ ] `cargo clippy --workspace --all-targets -- -D warnings` passes
 - [ ] `cargo test --workspace` passes, including tests for the change
 - [ ] Frontend checks pass if `frontend/` changed: `npm run lint`, `npm run build`
-- [ ] Docs updated (`docs/`, `CHANGELOG.md` unreleased section)
+- [ ] Docs updated (`docs/`, `docs/CHANGELOG.md` unreleased section)
 - [ ] No secrets committed; no host-side document parsing; no panics on hostile input

@@ -102,7 +102,7 @@ isolation use `DOCBUNKER_BACKEND=subprocess` (dev only). Production backends
 1. `cargo fmt --all -- --check` and `cargo clippy --workspace --all-targets -- -D warnings` pass.
 2. `cargo test --workspace` passes (including new tests for the change).
 3. Frontend checks pass if you touched `frontend/`: `npm run lint`, `npm run build`.
-4. Documentation updated: `docs/`, `CHANGELOG.md` unreleased section, ADR if the security model changes.
+4. Documentation updated: `docs/`, `docs/CHANGELOG.md` unreleased section, ADR if the security model changes.
 5. No secrets, no host-side document parsing, no panics on hostile input.
 
 Thanks for contributing.
