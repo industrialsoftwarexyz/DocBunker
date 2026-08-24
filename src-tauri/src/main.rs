@@ -119,7 +119,11 @@ fn main() {
                 for url in event.urls() {
                     if url.scheme() == "docbunker" && url.host_str() == Some("open") {
                         if let Some(path) = url.query_pairs().find_map(|(k, v)| {
-                            if k == "path" { Some(v.into_owned()) } else { None }
+                            if k == "path" {
+                                Some(v.into_owned())
+                            } else {
+                                None
+                            }
                         }) {
                             let path = std::path::PathBuf::from(&path);
                             if path.is_file() {

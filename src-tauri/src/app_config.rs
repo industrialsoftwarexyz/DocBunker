@@ -7,8 +7,8 @@ use docbunker_sandbox::platforms::{HostProfile, QemuConfig, RunscConfig};
 
 const BUNDLED_VM_HASHES: &str = include_str!("../../sandbox/vm/SHA256SUMS");
 const SUPPORTED_EXTENSIONS: [&str; 14] = [
-    "pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx",
-    "gif", "tif", "tiff", "bmp", "epub", "rtf",
+    "pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx", "gif", "tif", "tiff", "bmp",
+    "epub", "rtf",
 ];
 
 #[derive(Debug, PartialEq, Eq)]

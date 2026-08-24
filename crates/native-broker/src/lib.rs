@@ -31,8 +31,8 @@ pub const EXTENSION_ORIGIN: &str = "chrome-extension://lmmdckggliegiglepibblfnpa
 pub const MAX_NATIVE_MESSAGE_SIZE: usize = 64 * 1024;
 
 pub const SUPPORTED_EXTENSIONS: [&str; 14] = [
-    "pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx",
-    "gif", "tif", "tiff", "bmp", "epub", "rtf",
+    "pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx", "gif", "tif", "tiff", "bmp",
+    "epub", "rtf",
 ];
 
 /// Whether the extension reveals a supported document type by name.

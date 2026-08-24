@@ -167,8 +167,8 @@ pub async fn open_document(state: State<'_, AppState>) -> Result<OpenResultDto, 
 }
 
 const SUPPORTED_EXTENSIONS: [&str; 14] = [
-    "pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx",
-    "gif", "tif", "tiff", "bmp", "epub", "rtf",
+    "pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx", "gif", "tif", "tiff", "bmp",
+    "epub", "rtf",
 ];
 
 /// Open a document by its filesystem path (used by drag-and-drop).
