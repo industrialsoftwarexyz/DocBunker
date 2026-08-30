@@ -121,7 +121,6 @@ jobs:
   runsc-smoke:
     name: runsc end-to-end (ubuntu)
     runs-on: ubuntu-22.04
-    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install runsc
