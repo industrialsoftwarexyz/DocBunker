@@ -118,8 +118,13 @@ fn check_proc_read_only() {
 fn check_env_clean() {
     let mut vars: Vec<(String, String)> = env::vars().collect();
     vars.sort();
-    if vars == [("PATH".to_string(), "/bin".to_string())] {
-        report("env-clean", true, "only PATH=/bin present");
+    // Accept exactly PATH=/bin and HOME=/ (gVisor injects HOME by default).
+    let expected = [
+        ("HOME".to_string(), "/".to_string()),
+        ("PATH".to_string(), "/bin".to_string()),
+    ];
+    if vars == expected {
+        report("env-clean", true, "only PATH=/bin HOME=/ present");
     } else {
         report(
             "env-clean",

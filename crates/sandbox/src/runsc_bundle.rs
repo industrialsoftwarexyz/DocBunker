@@ -156,7 +156,7 @@ fn write_config_exclusive(bundle_dir: &Path, rendered: &[u8]) -> Result<(), Sand
 fn build_config(rootfs: &Path, config: &SandboxConfig, args: &[String]) -> Value {
     let resources = build_resources(config);
     let mounts = build_mounts(config);
-    let env = ["PATH=/bin"];
+    let env = ["PATH=/bin", "HOME=/"];
     let args: Vec<Value> = args.iter().map(|a| json!(a)).collect();
 
     json!({
@@ -347,7 +347,7 @@ mod tests {
 
         // Worker as init, minimal env.
         assert_eq!(value["process"]["args"], json!(["/bin/renderer-worker"]));
-        assert_eq!(value["process"]["env"], json!(["PATH=/bin"]));
+        assert_eq!(value["process"]["env"], json!(["PATH=/bin", "HOME=/"]));
     }
 
     #[test]
@@ -375,7 +375,7 @@ mod tests {
         assert_eq!(value["root"]["readonly"], true);
         assert_eq!(value["process"]["user"]["uid"], 65534);
         assert_eq!(value["process"]["capabilities"]["bounding"], json!([]));
-        assert_eq!(value["process"]["env"], json!(["PATH=/bin"]));
+        assert_eq!(value["process"]["env"], json!(["PATH=/bin", "HOME=/"]));
     }
 
     #[test]
