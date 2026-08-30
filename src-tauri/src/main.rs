@@ -120,10 +120,18 @@ fn main() {
                 for url in event.urls() {
                     if url.scheme() == "docbunker" && url.host_str() == Some("open") {
                         if let Some(path) = url.query_pairs().find_map(|(k, v)| {
-                            if k == "path" { Some(v.into_owned()) } else { None }
+                            if k == "path" {
+                                Some(v.into_owned())
+                            } else {
+                                None
+                            }
                         }) {
                             let path = std::path::PathBuf::from(&path);
-                            if path.is_file() {
+                            if docbunker_native_broker::is_safe_local_path(&path)
+                                && docbunker_native_broker::is_supported_document(&path)
+                                && path.is_file()
+                                && docbunker_native_broker::has_supported_signature(&path)
+                            {
                                 let state = app_handle.state::<StartupFiles>();
                                 let mut queue = match state.0.lock() {
                                     Ok(q) => q,

@@ -16,6 +16,11 @@ docbunker-sandbox = { path = "../crates/sandbox" }
 docbunker-protocol = { path = "../crates/protocol" }
 docbunker-renderer-api = { path = "../crates/renderer-api" }
 docbunker-renderer-worker = { path = "../crates/renderer-worker" }
+docbunker-renderer-ooxml = { path = "../crates/renderer-ooxml" }
+docbunker-native-broker = { path = "../crates/native-broker" }
+
+[dev-dependencies]
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 # A deliberately misbehaving worker used to exercise host-side validation.
 [[bin]]

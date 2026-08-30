@@ -36,11 +36,12 @@ Add `DocumentFormat::Ooxml` (wire value 5) and a `renderer-ooxml` crate that:
    | ZIP entry count | ≤ 1 024 |
    | Uncompressed size per entry | ≤ 16 MiB |
    | Total uncompressed size | ≤ 64 MiB (= `MAX_DOCUMENT_SIZE`) |
-   | Compression ratio (declared sizes) | ≤ 1 000× (+ 64 B slack) |
+   | Compression ratio (declared and actual output) | ≤ 1 000× (+ 64 B slack) |
    | Extracted text | ≤ 200 000 chars |
 
-   Reads are bounded with `Read::take`; the worker never allocates beyond a
-   cap from header-declared sizes.
+   Declared sizes are checked before extraction, but they are not trusted for
+   accounting. Reads are bounded with `Read::take`, and the actual bytes
+   produced are charged to the per-entry and aggregate caps.
 4. **Parses XML without entity expansion**: `quick-xml` in a non-validating
    mode that never expands DTD-defined or custom entities (`check_entities =
    false`, `GeneralRef` events dropped). Only the five predefined entities

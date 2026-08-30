@@ -157,7 +157,11 @@ impl<R: Read> FrameReader<R> {
             return Err(ProtocolError::FrameTooLarge);
         }
 
-        let mut payload = vec![0u8; len];
+        let mut payload = Vec::new();
+        payload
+            .try_reserve_exact(len)
+            .map_err(|_| ProtocolError::ResourceExhausted)?;
+        payload.resize(len, 0);
         self.inner.read_exact(&mut payload).map_err(|e| {
             if e.kind() == std::io::ErrorKind::UnexpectedEof {
                 ProtocolError::TruncatedFrame

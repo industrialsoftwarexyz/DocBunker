@@ -1063,10 +1063,13 @@ name = "docbunker-integration-tests"
 version = "0.1.0"
 dependencies = [
  "docbunker-core",
+ "docbunker-native-broker",
  "docbunker-protocol",
  "docbunker-renderer-api",
+ "docbunker-renderer-ooxml",
  "docbunker-renderer-worker",
  "docbunker-sandbox",
+ "zip",
 ]
 
 [[package]]

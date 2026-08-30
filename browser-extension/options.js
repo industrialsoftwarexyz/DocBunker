@@ -6,7 +6,6 @@ const defaults = {
   deleteAfterOpen: false,
   autoOpen: false,
   enabledTypes: [...ALL_TYPES],
-  downloadDir: "",
 };
 
 // --- load ---
@@ -15,8 +14,6 @@ async function load() {
 
   document.querySelector("#delete-after-open").checked = stored.deleteAfterOpen;
   document.querySelector("#auto-open").checked = stored.autoOpen;
-  document.querySelector("#download-dir").value = stored.downloadDir;
-
   const container = document.querySelector("#type-toggles");
   for (const ext of ALL_TYPES) {
     const label = document.createElement("label");
@@ -44,15 +41,6 @@ document.querySelector("#delete-after-open").addEventListener("change", (e) => {
 
 document.querySelector("#auto-open").addEventListener("change", (e) => {
   chrome.storage.local.set({ autoOpen: e.target.checked });
-});
-
-document.querySelector("#download-dir").addEventListener("change", (e) => {
-  chrome.storage.local.set({ downloadDir: e.target.value.trim() });
-});
-
-document.querySelector("#reset-dir").addEventListener("click", () => {
-  document.querySelector("#download-dir").value = "";
-  chrome.storage.local.set({ downloadDir: "" });
 });
 
 load();

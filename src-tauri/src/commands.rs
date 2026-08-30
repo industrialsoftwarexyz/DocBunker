@@ -15,7 +15,9 @@ use tauri::State;
 
 use crate::app_config::PendingDocument;
 use docbunker_core::{imaging, DocBunkerError, DocumentManager};
-use docbunker_native_broker::has_supported_signature;
+use docbunker_native_broker::{
+    has_supported_signature, has_supported_signature_bytes, is_safe_local_path,
+};
 use docbunker_renderer_api::limits::MAX_DOCUMENT_SIZE;
 use docbunker_renderer_api::{DocumentInfo, RenderOptions, RenderedPage};
 
@@ -93,6 +95,9 @@ async fn open_file(
         .collect::<String>();
     let handle = tauri::async_runtime::spawn_blocking(move || {
         let bytes = docbunker_core::io::read_document_file(&file, MAX_DOCUMENT_SIZE)?;
+        if !has_supported_signature_bytes(&bytes) {
+            return Err(DocBunkerError::UnsupportedFormat);
+        }
         manager.open(bytes)
     })
     .await
@@ -167,8 +172,8 @@ pub async fn open_document(state: State<'_, AppState>) -> Result<OpenResultDto, 
 }
 
 const SUPPORTED_EXTENSIONS: [&str; 14] = [
-    "pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx",
-    "gif", "tif", "tiff", "bmp", "epub", "rtf",
+    "pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx", "gif", "tif", "tiff", "bmp",
+    "epub", "rtf",
 ];
 
 /// Open a document by its filesystem path (used by drag-and-drop).
@@ -178,7 +183,8 @@ pub async fn open_document_by_path(
     path: String,
 ) -> Result<OpenResultDto, DocBunkerError> {
     let path = PathBuf::from(&path);
-    let valid = path.is_file()
+    let valid = is_safe_local_path(&path)
+        && path.is_file()
         && path
             .extension()
             .and_then(|ext| ext.to_str())

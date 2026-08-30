@@ -11,10 +11,6 @@
       p { color: #59636c; line-height: 1.45; margin: 4px 0 0; }
       .types { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0; }
       .types label { font-size: 12px; gap: 4px; }
-      .folder-row { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
-      .folder-row input { flex: 1; padding: 4px 8px; border: 1px solid #ccc; border-radius: 3px; font: 12px monospace; }
-      .folder-row button { padding: 4px 10px; border: 1px solid #7d9db5; border-radius: 3px; background: #f0f6fb; color: #174a70; cursor: pointer; font-size: 12px; }
-      .folder-row button:hover { background: #dbeaf5; }
       hr { border: none; border-top: 1px solid #eee; margin: 14px 0; }
     </style>
   </head>
@@ -37,15 +33,6 @@
     <h2>Show buttons for</h2>
     <div class="types" id="type-toggles"></div>
     <p>Unchecked types won't show the "Open in DocBunker" button.</p>
-
-    <hr />
-
-    <h2>Download folder</h2>
-    <div class="folder-row">
-      <input id="download-dir" type="text" placeholder="~/Downloads (default)" />
-      <button id="reset-dir">Reset</button>
-    </div>
-    <p>DocBunker only opens files from this folder. Chrome must also download here.</p>
 
     <script src="options.js"></script>
   </body>

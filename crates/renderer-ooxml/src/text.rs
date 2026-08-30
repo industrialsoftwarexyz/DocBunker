@@ -22,7 +22,7 @@ use zip::ZipArchive;
 
 use crate::container::{
     decode_reference, decode_text, entry_within_caps, floor_char_boundary, push_line,
-    read_entry_bounded,
+    read_entry_bounded_total,
 };
 use crate::MAX_ZIP_ENTRIES;
 
@@ -184,16 +184,16 @@ pub fn extract(data: &[u8]) -> Result<OoxmlText, RenderError> {
     let mut shared_strings = None;
     let mut media_indices: Vec<usize> = Vec::new();
     let mut has_content_types = false;
-    let mut total: u64 = 0;
-    let mut media_bytes: u64 = 0;
+    let mut declared_total: u64 = 0;
+    let mut declared_media_bytes: u64 = 0;
 
     for index in 0..archive.len() {
         let entry = archive
             .by_index(index)
             .map_err(|_| RenderError::InvalidDocument)?;
         let (compressed, uncompressed) = (entry.compressed_size(), entry.size());
-        entry_within_caps(compressed, uncompressed, total)?;
-        total = total.saturating_add(uncompressed);
+        entry_within_caps(compressed, uncompressed, declared_total)?;
+        declared_total = declared_total.saturating_add(uncompressed);
 
         let name = entry.name().to_string();
         if name == "[Content_Types].xml" {
@@ -209,8 +209,8 @@ pub fn extract(data: &[u8]) -> Result<OoxmlText, RenderError> {
             if media_indices.len() >= crate::MAX_EMBEDDED_IMAGES {
                 return Err(RenderError::ResourceLimitExceeded);
             }
-            media_bytes = media_bytes.saturating_add(uncompressed);
-            if media_bytes > crate::MAX_EMBEDDED_MEDIA_BYTES {
+            declared_media_bytes = declared_media_bytes.saturating_add(uncompressed);
+            if declared_media_bytes > crate::MAX_EMBEDDED_MEDIA_BYTES {
                 return Err(RenderError::ResourceLimitExceeded);
             }
             media_indices.push(index);
@@ -226,9 +226,10 @@ pub fn extract(data: &[u8]) -> Result<OoxmlText, RenderError> {
 
     let mut truncated = false;
     let mut pages: Vec<Vec<String>> = Vec::new();
+    let mut extracted_total = 0u64;
 
     if let Some(index) = document_part {
-        let bytes = read_entry_bounded(&mut archive, index)?;
+        let bytes = read_entry_bounded_total(&mut archive, index, &mut extracted_total)?;
         let mut lines = Vec::new();
         extract_part_xml(&bytes, &mut lines, &mut truncated)?;
         pages.push(lines);
@@ -241,7 +242,7 @@ pub fn extract(data: &[u8]) -> Result<OoxmlText, RenderError> {
             if truncated {
                 break;
             }
-            let bytes = read_entry_bounded(&mut archive, index)?;
+            let bytes = read_entry_bounded_total(&mut archive, index, &mut extracted_total)?;
             let mut lines = Vec::new();
             extract_part_xml(&bytes, &mut lines, &mut truncated)?;
             pages.push(lines);
@@ -250,15 +251,25 @@ pub fn extract(data: &[u8]) -> Result<OoxmlText, RenderError> {
 
     let mut shared_strings_text: Vec<String> = Vec::new();
     if let Some(index) = shared_strings {
-        let bytes = read_entry_bounded(&mut archive, index)?;
+        let bytes = read_entry_bounded_total(&mut archive, index, &mut extracted_total)?;
         extract_part_xml(&bytes, &mut shared_strings_text, &mut truncated)?;
     }
 
-    let table = extract_table(&mut archive, &shared_strings_text)?;
+    let table = extract_table(&mut archive, &shared_strings_text, &mut extracted_total)?;
 
     let mut media = Vec::with_capacity(media_indices.len());
+    let mut actual_media_bytes = 0u64;
     for index in media_indices {
-        media.push(read_entry_bounded(&mut archive, index)?);
+        let bytes = read_entry_bounded_total(&mut archive, index, &mut extracted_total)?;
+        actual_media_bytes = actual_media_bytes
+            .checked_add(
+                u64::try_from(bytes.len()).map_err(|_| RenderError::ResourceLimitExceeded)?,
+            )
+            .ok_or(RenderError::ResourceLimitExceeded)?;
+        if actual_media_bytes > crate::MAX_EMBEDDED_MEDIA_BYTES {
+            return Err(RenderError::ResourceLimitExceeded);
+        }
+        media.push(bytes);
     }
 
     let has_content = pages
@@ -284,6 +295,7 @@ pub fn extract(data: &[u8]) -> Result<OoxmlText, RenderError> {
 fn extract_table(
     archive: &mut ZipArchive<Cursor<Vec<u8>>>,
     shared: &[String],
+    extracted_total: &mut u64,
 ) -> Result<Option<Vec<Vec<String>>>, RenderError> {
     let sheet_index = (0..archive.len()).find(|index| {
         archive
@@ -297,7 +309,7 @@ fn extract_table(
     let Some(sheet_index) = sheet_index else {
         return Ok(None);
     };
-    let bytes = read_entry_bounded(archive, sheet_index)?;
+    let bytes = read_entry_bounded_total(archive, sheet_index, extracted_total)?;
 
     let mut rows: Vec<Vec<String>> = Vec::new();
     let mut row: Vec<String> = Vec::new();

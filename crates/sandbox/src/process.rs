@@ -14,7 +14,6 @@
 
 use std::collections::HashMap;
 use std::io::{BufReader, BufWriter, Read, Write};
-use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -106,7 +105,7 @@ impl ProcessTransport {
     /// page buffers are enabled (dev `SubprocessBackend` only).
     pub fn spawn(worker_bin: &Path, timeout: Duration) -> Result<Self, SandboxError> {
         let mut command = Command::new(worker_bin);
-        Self::spawn_command_inner(&mut command, timeout, true)
+        Self::spawn_command_inner(&mut command, timeout, true, Stdio::null())
     }
 
     /// Spawn a ready-made command (e.g. `runsc run <id>`) and handshake.
@@ -114,18 +113,27 @@ impl ProcessTransport {
     /// The command's stdio is piped; its environment is cleared. Shared-memory
     /// page buffers are disabled (the sandbox filesystem is not the host's).
     pub fn spawn_command(command: &mut Command, timeout: Duration) -> Result<Self, SandboxError> {
-        Self::spawn_command_inner(command, timeout, false)
+        Self::spawn_command_inner(command, timeout, false, Stdio::null())
+    }
+
+    /// Spawn a sandbox command whose stderr is written to a caller-owned sink.
+    pub fn spawn_command_with_stderr(
+        command: &mut Command,
+        timeout: Duration,
+        stderr: Stdio,
+    ) -> Result<Self, SandboxError> {
+        Self::spawn_command_inner(command, timeout, false, stderr)
     }
 
     fn spawn_command_inner(
         command: &mut Command,
         timeout: Duration,
         shm_capable: bool,
+        stderr: Stdio,
     ) -> Result<Self, SandboxError> {
         // Harden the child: empty environment (no secrets, no locale tricks).
-        // stderr is discarded, never inherited: the untrusted worker (and
-        // runsc) could otherwise inject terminal escape sequences into the
-        // host console. Errors surface through the protocol instead.
+        // stderr is never inherited: the untrusted worker (and runsc) could
+        // otherwise inject terminal escape sequences into the host console.
         //
         // TMP/TEMP(/TMPDIR) are re-injected afterwards: the shared-memory
         // region name is resolved against std::env::temp_dir() on BOTH sides,
@@ -135,12 +143,18 @@ impl ProcessTransport {
         command.env_clear();
         // Re-injected after the clear; see the comment above.
         command.env("TMP", &temp_dir).env("TEMP", &temp_dir);
+        #[cfg(windows)]
+        for name in ["SystemRoot", "WINDIR"] {
+            if let Some(value) = std::env::var_os(name) {
+                command.env(name, value);
+            }
+        }
         #[cfg(unix)]
         command.env("TMPDIR", &temp_dir);
         let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(stderr)
             .spawn()
             .map_err(|e| {
                 tracing::error!("cannot spawn worker command: {e}");
@@ -164,65 +178,6 @@ impl ProcessTransport {
             timeout,
             shm_capable,
         )
-    }
-
-    /// Spawn QEMU and connect its virtio chardev over a loopback TCP socket.
-    ///
-    /// Shared-memory page buffers are disabled (the guest is a separate
-    /// machine; page bytes travel over the transport).
-    pub fn spawn_command_over_tcp(
-        command: &mut Command,
-        listener: TcpListener,
-        timeout: Duration,
-    ) -> Result<Self, SandboxError> {
-        command
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .env_clear();
-        #[cfg(target_os = "windows")]
-        {
-            use std::os::windows::process::CommandExt;
-
-            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-            command.creation_flags(CREATE_NO_WINDOW);
-            for name in ["SystemRoot", "WINDIR"] {
-                if let Some(value) = std::env::var_os(name) {
-                    command.env(name, value);
-                }
-            }
-        }
-        let mut child = command.spawn().map_err(|e| {
-            tracing::error!("cannot spawn QEMU: {e}");
-            SandboxError::BackendUnsupported("QEMU binary unavailable")
-        })?;
-
-        listener.set_nonblocking(true)?;
-        let deadline = std::time::Instant::now() + timeout;
-        let stream = loop {
-            match listener.accept() {
-                Ok((stream, _)) => break stream,
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    if child.try_wait()?.is_some() {
-                        return Err(SandboxError::WorkerCrashed);
-                    }
-                    if std::time::Instant::now() >= deadline {
-                        let _ = child.kill();
-                        let _ = child.wait();
-                        return Err(SandboxError::Timeout);
-                    }
-                    std::thread::sleep(Duration::from_millis(10));
-                }
-                Err(e) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(e.into());
-                }
-            }
-        };
-        stream.set_nonblocking(false)?;
-        stream.set_nodelay(true)?;
-        let reader = stream.try_clone()?;
-        Self::from_child_io(child, Box::new(stream), Box::new(reader), timeout, false)
     }
 
     fn from_child_io(

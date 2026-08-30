@@ -26,8 +26,10 @@ These components are trusted and must therefore stay small, audited and free of 
   manager shutdown.
 - **Sandbox Manager** — creates/destroys sandboxes, enforces limits and timeouts, validates IPC.
 - **QEMU + native hypervisor** — disposable outer VM boundary using WHPX,
-  HVF or KVM, launched with `-nodefaults -monitor none -nic none -display none
-  -no-reboot` (QMP never enabled) and (on Unix) QEMU's seccomp `-sandbox on`.
+  HVF or KVM, launched with `-no-user-config -nodefaults -monitor none -nic
+  none -display none -no-reboot` (QMP never enabled) and, on Linux, QEMU's
+  deny-mode seccomp sandbox. The protocol uses the QEMU child's stdin/stdout
+  handles directly, so there is no local listener to race or impersonate.
 - **`runsc` / gVisor** — inner isolation boundary inside the minimal Linux
   guest.
 

@@ -18,8 +18,9 @@ pub(super) fn hardening_flags() -> Vec<&'static str> {
         "-display",
         "none", // no graphics / input devices
         "-monitor",
-        "none",        // no HMP console
-        "-nodefaults", // no default devices at all
+        "none",            // no HMP console
+        "-no-user-config", // ignore host user configuration
+        "-nodefaults",     // no default devices at all
         // QMP is not enabled: `-qmp` is never passed, and `-nodefaults`
         // skips the default monitor chardev. (`-qmp none` is rejected by
         // QEMU 11+, so the QMP channel is disabled by omission instead.)
@@ -27,11 +28,10 @@ pub(super) fn hardening_flags() -> Vec<&'static str> {
         "none",       // no network interface
         "-no-reboot", // guest cannot reboot the VM
     ];
-    // QEMU's seccomp sandbox is only built on Unix hosts (libseccomp);
-    // Windows builds do not support it.
-    if cfg!(not(target_os = "windows")) {
+    // QEMU's seccomp sandbox is a Linux-host feature.
+    if cfg!(target_os = "linux") {
         flags.push("-sandbox");
-        flags.push("on");
+        flags.push("on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny");
     }
     flags
 }
@@ -40,7 +40,6 @@ pub(super) fn build_qemu_command(
     qemu: &QemuConfig,
     sandbox: &SandboxConfig,
     log_path: &Path,
-    port: u16,
 ) -> Command {
     let mut command = Command::new(&qemu.qemu_bin);
     command
@@ -65,9 +64,7 @@ pub(super) fn build_qemu_command(
         .arg("-serial")
         .arg(format!("file:{}", qemu_path(log_path)))
         .arg("-chardev")
-        .arg(format!(
-            "socket,id=char0,host=127.0.0.1,port={port},nodelay=on"
-        ))
+        .arg("stdio,id=char0")
         .args(["-device", "virtio-serial-pci,id=vser0"])
         .args([
             "-device",
@@ -107,14 +104,21 @@ mod tests {
     #[test]
     fn qemu_launch_includes_every_hardening_flag() {
         let log = Path::new("/tmp/guest.log");
-        let command = build_qemu_command(&config(), &SandboxConfig::default(), log, 4444);
+        let command = build_qemu_command(&config(), &SandboxConfig::default(), log);
         let arguments: Vec<String> = command
             .get_args()
             .map(|arg| arg.to_string_lossy().into_owned())
             .collect();
 
         // Every host-visible surface must be disabled.
-        for flag in ["-display", "-monitor", "-nodefaults", "-nic", "-no-reboot"] {
+        for flag in [
+            "-display",
+            "-monitor",
+            "-no-user-config",
+            "-nodefaults",
+            "-nic",
+            "-no-reboot",
+        ] {
             assert!(
                 arguments.iter().any(|arg| arg == flag),
                 "missing hardening flag {flag}"
@@ -139,21 +143,25 @@ mod tests {
         assert!(arguments
             .iter()
             .any(|arg| arg == "virtserialport,chardev=char0,id=port0,name=docbunker"));
+        assert!(arguments.iter().any(|arg| arg == "stdio,id=char0"));
     }
 
     #[test]
     fn seccomp_sandbox_flag_is_platform_consistent() {
         let flags = hardening_flags();
-        if cfg!(not(target_os = "windows")) {
+        if cfg!(target_os = "linux") {
             let index = flags
                 .iter()
                 .position(|flag| *flag == "-sandbox")
-                .unwrap_or_else(|| panic!("missing -sandbox on unix"));
-            assert_eq!(flags.get(index + 1).copied(), Some("on"));
+                .unwrap_or_else(|| panic!("missing -sandbox on Linux"));
+            assert_eq!(
+                flags.get(index + 1).copied(),
+                Some("on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny")
+            );
         } else {
             assert!(
                 flags.iter().all(|flag| *flag != "-sandbox"),
-                "-sandbox must not be passed on Windows builds"
+                "-sandbox must not be passed on non-Linux builds"
             );
         }
     }

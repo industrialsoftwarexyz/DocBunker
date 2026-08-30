@@ -171,6 +171,7 @@ fn build_config(rootfs: &Path, config: &SandboxConfig, args: &[String]) -> Value
                 "bounding": [],
                 "effective": [],
                 "permitted": [],
+                "inheritable": [],
                 "ambient": []
             },
             "rlimits": [

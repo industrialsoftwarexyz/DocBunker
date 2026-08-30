@@ -128,16 +128,16 @@ Windows/macOS/Linux host
 - Each session is a fresh disposable VM, booted from a prebuilt initramfs
   (`sandbox/scripts/build-vm-image.sh`, Linux CI) — no runtime image tooling.
 - QEMU is launched with every host-visible surface disabled:
-  `-nodefaults -display none -monitor none -nic none -no-reboot`
+  `-no-user-config -nodefaults -display none -monitor none -nic none -no-reboot`
   (QMP is never enabled — `-qmp` is not passed and `-nodefaults` skips the
   default monitor chardev; `-qmp none` is rejected by QEMU 11+),
-  plus QEMU's seccomp sandbox (`-sandbox on`) on Unix hosts; the only device
-  is the virtio-serial port that carries the protocol. The exact flag set is
-  enforced by a unit test (`vm/command.rs`).
-- The binary protocol crosses `virtio-serial`: a host-only loopback TCP
-  chardev is wired to a `virtserialport`, and guest `/init` redirects `runsc`
-  stdio to `/dev/vport0p1`. The guest still has no network device. Validation,
-  timeouts and cleanup remain in `ProcessTransport`.
+  plus QEMU's deny-mode seccomp sandbox on Linux hosts. The explicitly added
+  devices are the diagnostic UART and the virtio-serial protocol port. The
+  exact flag set is enforced by a unit test (`vm/command.rs`).
+- The binary protocol crosses `virtio-serial`: QEMU's `stdio` chardev is wired
+  directly to the child process pipes and guest `/init` redirects `runsc`
+  stdio to `/dev/vport0p1`. No host listener or guest network device exists.
+  Validation, timeouts and cleanup remain in `ProcessTransport`.
 - Env: `DOCBUNKER_QEMU_BIN` (architecture-specific default),
   `DOCBUNKER_VM_KERNEL`, `DOCBUNKER_VM_INITRD`, `DOCBUNKER_QEMU_ACCEL` (default
   `whpx`/`hvf`/`kvm` by host), `DOCBUNKER_QEMU_CPU` (`qemu64,svm=off` on Windows

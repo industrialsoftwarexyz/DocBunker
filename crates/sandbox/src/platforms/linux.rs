@@ -31,6 +31,7 @@ use crate::error::SandboxError;
 use crate::process::{ProcessTransport, WorkerSession};
 use crate::runsc_bundle::{parse_runsc_version, OciBundle};
 use crate::session::{DocumentId, DocumentInput, SandboxKind, SandboxSession};
+use crate::version::SemVer;
 use docbunker_renderer_api::{DocumentInfo, RenderOptions, RenderedPage};
 
 /// Runtime configuration for the `runsc` backend.
@@ -42,6 +43,9 @@ pub struct RunscConfig {
     pub rootfs_dir: PathBuf,
     /// Base directory for per-session bundles and runsc state.
     pub tmp_base: PathBuf,
+    /// Recommended minimum runsc version. If the detected version is below this,
+    /// a warning is logged but the backend is not blocked.
+    pub(crate) min_version: Option<SemVer>,
 }
 
 impl RunscConfig {
@@ -54,7 +58,17 @@ impl RunscConfig {
             runsc_bin: runsc_bin.as_ref().to_path_buf(),
             rootfs_dir: rootfs_dir.as_ref().to_path_buf(),
             tmp_base: tmp_base.as_ref().to_path_buf(),
+            min_version: None,
         }
+    }
+
+    /// Set the recommended minimum runsc version (warning only, not blocking).
+    pub fn with_min_version(mut self, version: &str) -> Result<Self, String> {
+        self.min_version = Some(
+            SemVer::parse(version)
+                .ok_or_else(|| format!("invalid runsc minimum version: {version}"))?,
+        );
+        Ok(self)
     }
 }
 
@@ -268,7 +282,17 @@ impl SandboxBackend for RunscBackend {
         let out = self.probe_runsc()?;
         if let Ok(text) = String::from_utf8(out.stdout) {
             match parse_runsc_version(&text) {
-                Some(v) => tracing::info!(version = %v, "runsc version"),
+                Some(v_str) => {
+                    tracing::info!(version = %v_str, "runsc version");
+                    if let Some(detected) = SemVer::parse(&v_str) {
+                        if let Some(ref minimum) = self.config.min_version {
+                            if let Some(warning) = detected.below_minimum_warning("runsc", minimum)
+                            {
+                                tracing::warn!("{warning}");
+                            }
+                        }
+                    }
+                }
                 None => tracing::warn!("unexpected runsc --version output: {}", text.trim()),
             }
         }
