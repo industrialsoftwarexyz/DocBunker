@@ -56,7 +56,11 @@ fn run() -> Result<(), String> {
         return write_response(false, "invalid message size");
     }
 
-    let mut payload = vec![0; length];
+    let mut payload = Vec::new();
+    if payload.try_reserve_exact(length).is_err() {
+        return write_response(false, "invalid message size");
+    }
+    payload.resize(length, 0);
     std::io::stdin()
         .read_exact(&mut payload)
         .map_err(|error| format!("cannot read native message: {error}"))?;
@@ -113,6 +117,7 @@ fn write_response(ok: bool, message: &str) -> Result<(), String> {
 }
 
 #[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Request {
     action: String,
     path: String,

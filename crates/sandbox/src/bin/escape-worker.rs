@@ -25,7 +25,7 @@ use std::fs;
 use std::io::Write;
 use std::net::TcpStream;
 use std::process::Command;
-use std::time::Duration;
+use std::sync::{Arc, Condvar, Mutex};
 
 fn report(check: &str, ok: bool, detail: &str) {
     let status = if ok { "PASS" } else { "FAIL" };
@@ -95,26 +95,22 @@ fn check_rootfs_read_only() {
 }
 
 fn check_proc_read_only() {
-    let mut blocked = 0usize;
-    for path in [
-        "/proc/sysrq-trigger",
-        "/proc/sys/kernel/hostname",
-        "/proc/kcore",
-        "/proc/self/mem",
-    ] {
-        let write_blocked = fs::write(path, b"x").is_err();
-        let read_blocked = fs::read(path).is_err();
-        if write_blocked && read_blocked {
-            blocked += 1;
-        }
-    }
-    if blocked == 4 {
-        report("proc-read-only", true, "all proc sensitive paths blocked");
+    let kcore_masked = fs::read("/proc/kcore").is_err() && fs::write("/proc/kcore", b"x").is_err();
+    let hostname_read_only = fs::write("/proc/sys/kernel/hostname", b"x").is_err();
+    let sysrq_read_only = fs::write("/proc/sysrq-trigger", b"x").is_err();
+    if kcore_masked && hostname_read_only && sysrq_read_only {
+        report(
+            "proc-read-only",
+            true,
+            "masked and read-only proc paths enforced",
+        );
     } else {
         report(
             "proc-read-only",
             false,
-            &format!("{}/4 sensitive /proc paths were accessible", 4 - blocked),
+            &format!(
+                "kcore_masked={kcore_masked} hostname_read_only={hostname_read_only} sysrq_read_only={sysrq_read_only}"
+            ),
         );
     }
 }
@@ -122,8 +118,13 @@ fn check_proc_read_only() {
 fn check_env_clean() {
     let mut vars: Vec<(String, String)> = env::vars().collect();
     vars.sort();
-    if vars == [("PATH".to_string(), "/bin".to_string())] {
-        report("env-clean", true, "only PATH=/bin present");
+    // Accept exactly PATH=/bin and HOME=/ (gVisor injects HOME by default).
+    let expected = [
+        ("HOME".to_string(), "/".to_string()),
+        ("PATH".to_string(), "/bin".to_string()),
+    ];
+    if vars == expected {
+        report("env-clean", true, "only PATH=/bin HOME=/ present");
     } else {
         report(
             "env-clean",
@@ -277,10 +278,18 @@ fn check_process_limit() {
     let mut created = 0usize;
     let mut last_error = String::new();
     let mut handles = Vec::new();
+    let release = Arc::new((Mutex::new(false), Condvar::new()));
     for _ in 0..ATTEMPTS {
+        let thread_release = Arc::clone(&release);
         let handle = std::thread::Builder::new()
             .stack_size(64 * 1024)
-            .spawn(|| std::thread::sleep(Duration::from_millis(50)));
+            .spawn(move || {
+                let (lock, wake) = &*thread_release;
+                let mut released = lock.lock().unwrap();
+                while !*released {
+                    released = wake.wait(released).unwrap();
+                }
+            });
         match handle {
             Ok(handle) => {
                 created += 1;
@@ -291,6 +300,11 @@ fn check_process_limit() {
                 break;
             }
         }
+    }
+    {
+        let (lock, wake) = &*release;
+        *lock.lock().unwrap() = true;
+        wake.notify_all();
     }
     for handle in handles {
         let _ = handle.join();

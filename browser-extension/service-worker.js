@@ -249,17 +249,20 @@ async function finishDownload(id, downloadError) {
   }
 
   const [download] = await api.downloads.search({ id });
-  if (!download?.filename || !isAllowedWebmailUrl(download.url)) {
+  const effectiveUrl = download?.finalUrl ?? download?.url;
+  if (
+    !download?.filename ||
+    !isAllowedWebmailUrl(download.url) ||
+    !isAllowedWebmailUrl(effectiveUrl)
+  ) {
     await finishPending(id, pending, "failed", "Invalid attachment download.");
     return;
   }
 
-  const displayName = pending.filename ?? extractFilename(download.url);
-  const { downloadDir = "" } = await api.storage.local.get("downloadDir");
+  const displayName = pending.filename ?? extractFilename(effectiveUrl);
   const response = await sendNativeMessage({
     action: "open_file",
     path: download.filename,
-    ...(downloadDir ? { allowedDir: downloadDir } : {}),
   });
   if (!response.ok) {
     await finishPending(

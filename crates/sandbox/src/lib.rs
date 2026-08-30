@@ -16,6 +16,7 @@ pub mod process_backend;
 pub mod runsc_bundle;
 pub mod session;
 pub mod transport;
+pub mod version;
 
 pub use backend::SandboxBackend;
 pub use config::SandboxConfig;

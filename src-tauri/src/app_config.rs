@@ -2,13 +2,15 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use docbunker_native_broker::{allowed_open_root, has_supported_signature, path_is_within_allowed};
+use docbunker_native_broker::{
+    allowed_open_root, has_supported_signature, is_safe_local_path, path_is_within_allowed,
+};
 use docbunker_sandbox::platforms::{HostProfile, QemuConfig, RunscConfig};
 
 const BUNDLED_VM_HASHES: &str = include_str!("../../sandbox/vm/SHA256SUMS");
 const SUPPORTED_EXTENSIONS: [&str; 14] = [
-    "pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx",
-    "gif", "tif", "tiff", "bmp", "epub", "rtf",
+    "pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx", "gif", "tif", "tiff", "bmp",
+    "epub", "rtf",
 ];
 
 #[derive(Debug, PartialEq, Eq)]
@@ -28,7 +30,8 @@ pub fn pending_document_from_args(
         .map(PathBuf::from)
         .filter(|path| valid_ack_path(path));
     let path = args.iter().map(PathBuf::from).find(|path| {
-        path.is_file()
+        is_safe_local_path(path)
+                && path.is_file()
                 && path
                     .extension()
                     .and_then(|extension| extension.to_str())
@@ -39,8 +42,8 @@ pub fn pending_document_from_args(
                     })
                 // On the native-handoff path the file was chosen by the extension
                 // flow, not by the user directly: re-check the magic signature
-                // here to close the TOCTOU between the native host's validation
-                // and this read (the file could have been swapped meanwhile).
+                // here as defense in depth. The bytes actually ingested are
+                // checked again after the bounded read in `commands::open_file`.
                 && (ack_path.is_none() || {
                     has_supported_signature(path)
                         && path_is_within_allowed(path, &allowed_open_root())
@@ -381,7 +384,7 @@ mod tests {
     }
 
     #[test]
-    fn native_handoff_rechecks_signature_to_close_toctou() {
+    fn native_handoff_rechecks_signature_before_ingestion() {
         let directory = tempfile::tempdir().unwrap();
         // Looks like a PDF by extension, but the content was swapped after the
         // native host validated it: the startup path must re-reject it.

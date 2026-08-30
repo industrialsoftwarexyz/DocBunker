@@ -5,7 +5,7 @@
 //! therefore be as small and restricted as possible. This library powers
 //! `docbunker-native-broker` (a dedicated binary with **no WebView, no Tauri,
 //! no document parsers**), and the main app uses the same validation on the
-//! startup path for defense in depth (TOCTOU re-check).
+//! startup path for defense in depth.
 //!
 //! Security properties enforced here:
 //!
@@ -31,8 +31,8 @@ pub const EXTENSION_ORIGIN: &str = "chrome-extension://lmmdckggliegiglepibblfnpa
 pub const MAX_NATIVE_MESSAGE_SIZE: usize = 64 * 1024;
 
 pub const SUPPORTED_EXTENSIONS: [&str; 14] = [
-    "pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx",
-    "gif", "tif", "tiff", "bmp", "epub", "rtf",
+    "pdf", "png", "jpg", "jpeg", "webp", "docx", "pptx", "xlsx", "gif", "tif", "tiff", "bmp",
+    "epub", "rtf",
 ];
 
 /// Whether the extension reveals a supported document type by name.
@@ -55,7 +55,11 @@ pub fn has_supported_signature(path: &Path) -> bool {
     let Ok(read) = file.read(&mut header) else {
         return false;
     };
-    let header = &header[..read];
+    has_supported_signature_bytes(&header[..read])
+}
+
+/// Whether bytes begin with a supported document signature.
+pub fn has_supported_signature_bytes(header: &[u8]) -> bool {
     header.starts_with(b"%PDF-")
         || header.starts_with(b"\x89PNG\r\n\x1a\n")
         || header.starts_with(b"\xff\xd8\xff")
@@ -72,6 +76,27 @@ pub fn has_supported_signature(path: &Path) -> bool {
         || header.starts_with(b"BM")
         // RTF
         || header.starts_with(b"{\\rtf")
+}
+
+/// Reject network, device and verbatim namespaces before touching the path.
+pub fn is_safe_local_path(path: &Path) -> bool {
+    #[cfg(windows)]
+    {
+        use std::path::{Component, Prefix};
+
+        let mut components = path.components();
+        matches!(
+            (components.next(), components.next()),
+            (
+                Some(Component::Prefix(prefix)),
+                Some(Component::RootDir)
+            ) if matches!(prefix.kind(), Prefix::Disk(_))
+        )
+    }
+    #[cfg(not(windows))]
+    {
+        path.is_absolute()
+    }
 }
 
 /// The directory the browser hand-off may read files from.
@@ -97,7 +122,7 @@ pub fn allowed_open_root() -> std::path::PathBuf {
 /// The returned error string is intentionally generic: it never leaks
 /// filesystem layout to the browser.
 pub fn validate_document_path(path: &Path) -> Result<(), &'static str> {
-    if !path.is_absolute() || !is_supported_document(path) {
+    if !is_safe_local_path(path) || !is_supported_document(path) {
         return Err("unsupported request");
     }
     if !has_supported_signature(path) {
@@ -171,6 +196,31 @@ mod tests {
         assert!(!has_supported_signature(
             &directory.path().join("missing.pdf")
         ));
+    }
+
+    #[test]
+    fn recognizes_supported_signatures_from_ingested_bytes() {
+        assert!(has_supported_signature_bytes(b"%PDF-1.7\n"));
+        assert!(has_supported_signature_bytes(b"PK\x03\x04payload"));
+        assert!(!has_supported_signature_bytes(b"<html>"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_accepts_only_normal_local_drive_paths() {
+        assert!(is_safe_local_path(Path::new(
+            r"C:\Users\alice\attachment.pdf"
+        )));
+        assert!(!is_safe_local_path(Path::new(
+            r"\\server\share\attachment.pdf"
+        )));
+        assert!(!is_safe_local_path(Path::new(
+            r"\\?\UNC\server\share\attachment.pdf"
+        )));
+        assert!(!is_safe_local_path(Path::new(r"\\.\PhysicalDrive0")));
+        assert!(!is_safe_local_path(Path::new(
+            r"\\?\C:\Users\alice\attachment.pdf"
+        )));
     }
 
     #[test]

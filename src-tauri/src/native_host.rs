@@ -6,10 +6,8 @@
 //! and verifies the broker is actually deployed next to it so we never
 //! register a dangling host.
 
-#[cfg(any(target_os = "windows", test))]
 use std::path::PathBuf;
 
-#[cfg(target_os = "windows")]
 use docbunker_native_broker::{EXTENSION_ORIGIN, HOST_NAME};
 
 /// Locate the broker binary (a sibling of the app executable).

@@ -42,9 +42,9 @@ jobs:
             bundles: deb,appimage
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
 
@@ -102,18 +102,25 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Checksums and artifact SBOM
+      - name: Generate artifact SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          path: dist
+          format: spdx-json
+          output-file: dist/docbunker-sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Generate checksums
         shell: bash
         run: |
           cd dist
           find . -type f ! -name 'SHA256SUMS.txt' -print0 | sort -z \
             | xargs -0 sha256sum -b > SHA256SUMS.txt
-          curl -sSfL https://get.anchore.io/syft | sh -s -- -b /usr/local/bin
-          syft dir:. -o spdx-json > docbunker-sbom.spdx.json
           ls -la
 
       - name: Create draft release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           draft: true
           generate_release_notes: true

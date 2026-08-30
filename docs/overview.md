@@ -189,7 +189,7 @@ flowchart TB
         V3["renderer-worker"]
         Q --> V1 --> V2 --> V3
     end
-    H -->|virtio-serial / host loopback| Q
+    H -->|child pipes / virtio-serial| Q
 ```
 
 The guest has no network device. `kernel` and `initramfs.cpio.gz` are hash-

@@ -99,8 +99,8 @@ model.
 - The untrusted worker's stderr is no longer inherited by the host console.
 - Error messages are truncated by bytes (not characters) before crossing the
   wire, so legitimate multi-byte renderer failures surface as real errors.
-- The native-handoff path re-verifies the file magic in the app (closes the
-  TOCTOU) and the acknowledgement file is never followed as a symlink.
+- The native-handoff path re-verifies the bytes read by the app before they
+  reach a parser, and the acknowledgement file is never followed as a symlink.
 - The runsc OCI bundle now emits an explicit empty device list.
 - The VM backend no longer passes `-qmp none` to QEMU: QEMU 11+ rejects it
   (`'none' is not a valid char driver`), which aborted sandbox startup on

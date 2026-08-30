@@ -79,10 +79,9 @@ pub fn read_entry_bounded_total(
         .map_err(|_| RenderError::InvalidDocument)?;
     let compressed = entry.compressed_size();
     let uncompressed = entry.size();
-    entry_within_caps(compressed, uncompressed, *total)?;
-    *total = total
-        .checked_add(uncompressed)
-        .ok_or(RenderError::ResourceLimitExceeded)?;
+    // Declared sizes are useful for early rejection but are attacker-controlled.
+    // Aggregate accounting below therefore uses the bytes actually produced.
+    entry_within_caps(compressed, uncompressed, 0)?;
 
     let mut bytes = Vec::new();
     let read = entry
@@ -92,6 +91,17 @@ pub fn read_entry_bounded_total(
     if read as u64 > MAX_ENTRY_UNCOMPRESSED {
         return Err(RenderError::ResourceLimitExceeded);
     }
+    let actual = u64::try_from(read).map_err(|_| RenderError::ResourceLimitExceeded)?;
+    if !ratio_allowed(compressed, actual) {
+        return Err(RenderError::ResourceLimitExceeded);
+    }
+    let next_total = total
+        .checked_add(actual)
+        .ok_or(RenderError::ResourceLimitExceeded)?;
+    if next_total > MAX_TOTAL_UNCOMPRESSED {
+        return Err(RenderError::ResourceLimitExceeded);
+    }
+    *total = next_total;
     Ok(bytes)
 }
 
@@ -349,6 +359,63 @@ fn flush_line(out: &mut Vec<String>, line: &mut String, truncated: &mut bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+
+    fn patch_central_uncompressed_size(zip: &mut [u8], declared: u32) {
+        const EOCD: &[u8; 4] = b"PK\x05\x06";
+        const CENTRAL: &[u8; 4] = b"PK\x01\x02";
+
+        let eocd = zip
+            .windows(EOCD.len())
+            .rposition(|window| window == EOCD)
+            .expect("end of central directory");
+        let central = u32::from_le_bytes(zip[eocd + 16..eocd + 20].try_into().unwrap()) as usize;
+        assert_eq!(&zip[central..central + 4], CENTRAL);
+        zip[central + 24..central + 28].copy_from_slice(&declared.to_le_bytes());
+    }
+
+    #[test]
+    fn aggregate_total_uses_actual_decompressed_bytes() {
+        let mut buffer = Vec::new();
+        {
+            let mut writer = zip::ZipWriter::new(std::io::Cursor::new(&mut buffer));
+            let options: zip::write::SimpleFileOptions = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Deflated);
+            writer.start_file("payload.bin", options).unwrap();
+            writer.write_all(&vec![b'a'; 4096]).unwrap();
+            writer.finish().unwrap();
+        }
+        patch_central_uncompressed_size(&mut buffer, 1);
+
+        let mut archive = open_archive(&buffer).unwrap();
+        assert_eq!(archive.by_index(0).unwrap().size(), 1);
+        let mut total = MAX_TOTAL_UNCOMPRESSED - 4095;
+        assert!(matches!(
+            read_entry_bounded_total(&mut archive, 0, &mut total),
+            Err(RenderError::ResourceLimitExceeded)
+        ));
+    }
+
+    #[test]
+    fn compression_ratio_uses_actual_decompressed_bytes() {
+        let mut buffer = Vec::new();
+        {
+            let mut writer = zip::ZipWriter::new(std::io::Cursor::new(&mut buffer));
+            let options: zip::write::SimpleFileOptions = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Deflated);
+            writer.start_file("payload.bin", options).unwrap();
+            writer.write_all(&vec![0; 2 * 1024 * 1024]).unwrap();
+            writer.finish().unwrap();
+        }
+        patch_central_uncompressed_size(&mut buffer, 1);
+
+        let mut archive = open_archive(&buffer).unwrap();
+        let mut total = 0;
+        assert!(matches!(
+            read_entry_bounded_total(&mut archive, 0, &mut total),
+            Err(RenderError::ResourceLimitExceeded)
+        ));
+    }
 
     #[test]
     fn decode_text_preserves_utf8() {

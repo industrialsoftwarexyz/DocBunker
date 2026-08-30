@@ -13,6 +13,8 @@ pub enum ProtocolError {
     FrameTooSmall,
     #[error("frame was truncated")]
     TruncatedFrame,
+    #[error("memory could not be reserved for the frame")]
+    ResourceExhausted,
     #[error("unsupported protocol version")]
     InvalidVersion,
     #[error("invalid message discriminator")]

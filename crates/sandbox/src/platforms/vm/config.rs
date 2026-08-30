@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use crate::version::SemVer;
+
 /// Native QEMU defaults for the current host OS and CPU architecture.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostProfile {
@@ -66,6 +68,9 @@ pub struct QemuConfig {
     pub machine: String,
     pub(crate) kernel_sha256: Option<[u8; 32]>,
     pub(crate) initrd_sha256: Option<[u8; 32]>,
+    /// Recommended minimum QEMU version. If the detected version is below this,
+    /// a warning is logged but the backend is not blocked.
+    pub(crate) min_version: Option<SemVer>,
 }
 
 impl QemuConfig {
@@ -88,6 +93,7 @@ impl QemuConfig {
             machine: machine.into(),
             kernel_sha256: None,
             initrd_sha256: None,
+            min_version: None,
         }
     }
 
@@ -109,6 +115,15 @@ impl QemuConfig {
 
     pub fn with_initrd_sha256(mut self, sha256: &str) -> Result<Self, String> {
         self.initrd_sha256 = Some(parse_sha256(sha256)?);
+        Ok(self)
+    }
+
+    /// Set the recommended minimum QEMU version (warning only, not blocking).
+    pub fn with_min_version(mut self, version: &str) -> Result<Self, String> {
+        self.min_version = Some(
+            SemVer::parse(version)
+                .ok_or_else(|| format!("invalid QEMU minimum version: {version}"))?,
+        );
         Ok(self)
     }
 }

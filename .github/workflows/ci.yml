@@ -121,7 +121,6 @@ jobs:
   runsc-smoke:
     name: runsc end-to-end (ubuntu)
     runs-on: ubuntu-22.04
-    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install runsc
@@ -163,12 +162,6 @@ jobs:
           sudo env "PATH=$PATH" DOCBUNKER_RUNSC_BIN=/usr/local/bin/runsc DOCBUNKER_ROOTFS="$PWD/sandbox/rootfs" \
             cargo test -p docbunker-sandbox runsc_end_to_end -- --ignored --nocapture
       - name: Run runsc escape test (as root)
-        # TEMPORARY continue-on-error: the harness surfaced real findings
-        # (gVisor on the runner not applying process.user/capabilities/
-        # noNewPrivs and the pids limit, one readable /proc path). Diagnostics
-        # are collected as artifacts; this gate returns to blocking once the
-        # profile-application investigation concludes. See CHANGELOG.
-        continue-on-error: true
         run: |
           set +e
           sudo env "PATH=$PATH" DOCBUNKER_RUNSC_BIN=/usr/local/bin/runsc DOCBUNKER_ROOTFS="$PWD/sandbox/rootfs" \

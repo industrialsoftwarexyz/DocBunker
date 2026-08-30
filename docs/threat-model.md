@@ -54,13 +54,14 @@ information leak with limited impact.
 ### A5. Zip bomb (Office/document containers)
 - **Threat**: A container (ZIP-based) expands to a huge tree.
 - **Attack surface**: OOXML container parser (`renderer-ooxml`, ADR-007).
-- **Mitigation**: Implemented with hard caps before any allocation: entry count
-  ≤ 1 024, per-entry uncompressed ≤ 16 MiB, total uncompressed ≤ 64 MiB,
-  declared compression ratio ≤ 1 000×, bounded reads (`Read::take`), and
-  XML parsing without entity expansion (billion-laughs safe). Only text parts
-  are ever read; nothing is extracted to disk. ADR-007 precedes the feature.
+- **Mitigation**: Implemented with hard caps: entry count ≤ 1 024, declared and
+  actual per-entry output ≤ 16 MiB, actual total output ≤ 64 MiB, declared and
+  actual compression ratio ≤ 1 000×, bounded reads (`Read::take`), and XML
+  parsing without entity expansion (billion-laughs safe). Only text parts are
+  ever read; nothing is extracted to disk. ADR-007 precedes the feature.
 - **Residual risk**: A parser bug in `zip`/`quick-xml` is contained by the
-  sandbox (worker memory limits); malformed declarations fail closed.
+  sandbox (worker memory limits); actual output accounting does not trust ZIP
+  size declarations.
 
 ---
 

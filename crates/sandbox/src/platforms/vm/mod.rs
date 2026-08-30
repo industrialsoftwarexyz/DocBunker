@@ -6,16 +6,14 @@
 //! isolation boundary is the hardware VM; the inner boundary is gVisor
 //! (`runsc`) inside the guest — see ADR-003 and ADR-006.
 //!
-//! The worker protocol travels over `virtio-serial`. A loopback TCP chardev
-//! gives QEMU a portable duplex host transport, while the guest `/init`
-//! redirects `runsc`'s stdio to `/dev/vport0p1`. The guest has no network
-//! device; the socket only backs the virtual serial port. Protocol validation
-//! is identical to the subprocess/runsc backends.
+//! The worker protocol travels over `virtio-serial`, backed directly by the
+//! QEMU child's stdin/stdout pipes. The guest `/init` redirects `runsc`'s stdio
+//! to `/dev/vport0p1`; no host listener or guest network device is exposed.
+//! Protocol validation is identical to the subprocess/runsc backends.
 
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
-use std::net::TcpListener;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
@@ -37,6 +35,7 @@ use crate::config::SandboxConfig;
 use crate::error::SandboxError;
 use crate::process::{ProcessTransport, WorkerSession};
 use crate::session::{DocumentId, DocumentInput, SandboxKind, SandboxSession};
+use crate::version::parse_qemu_version;
 use docbunker_renderer_api::{DocumentInfo, RenderOptions, RenderedPage};
 use sha2::{Digest, Sha256};
 
@@ -123,7 +122,22 @@ impl SandboxBackend for QemuVmBackend {
             .arg("--version")
             .output();
         match output {
-            Ok(out) if out.status.success() => {}
+            Ok(out) if out.status.success() => {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                if let Some(detected) = parse_qemu_version(&stdout) {
+                    tracing::info!(version = %detected, "QEMU version");
+                    if let Some(ref minimum) = self.config.min_version {
+                        if let Some(warning) = detected.below_minimum_warning("QEMU", minimum) {
+                            tracing::warn!("{warning}");
+                        }
+                    }
+                } else {
+                    tracing::warn!(
+                        "could not parse QEMU version from: {}",
+                        stdout.lines().next().unwrap_or("")
+                    );
+                }
+            }
             Ok(out) => {
                 tracing::error!(
                     "qemu --version failed: {}",
@@ -183,16 +197,11 @@ impl SandboxBackend for QemuVmBackend {
             .tempdir_in(&self.config.tmp_base)?;
         let log_path = runtime_dir.path().join("guest.log");
         let qemu_log_path = runtime_dir.path().join("qemu.log");
-        let listener = TcpListener::bind(("127.0.0.1", 0))?;
-        let port = listener.local_addr()?.port();
-
-        let mut command = build_qemu_command(&self.config, &config, &log_path, port);
-        command.stderr(Stdio::from(std::fs::File::create(qemu_log_path)?));
-
-        let transport = ProcessTransport::spawn_command_over_tcp(
+        let mut command = build_qemu_command(&self.config, &config, &log_path);
+        let transport = ProcessTransport::spawn_command_with_stderr(
             &mut command,
-            listener,
             config.operation_timeout,
+            Stdio::from(std::fs::File::create(qemu_log_path)?),
         )?;
 
         self.sessions.insert(
